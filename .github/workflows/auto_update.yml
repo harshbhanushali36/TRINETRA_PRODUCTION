@@ -1,0 +1,36 @@
+name: Auto Update Orbital Data
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"  # Runs every 12 hours
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run data update script
+        run: python spacetrack_fetch.py
+
+      - name: Commit and push updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/latest/*.xlsx
+          git add data/raw/*.xlsx
+          git add data/latest/*.json
+          git add data/raw/*.json
+          git commit -m "Automated orbital data update [skip ci]" || echo "No changes to commit"
+          git push
