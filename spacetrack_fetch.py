@@ -17,10 +17,12 @@ import os
 # ----------------------- 
 # User / runtime params
 # ----------------------- 
-USERNAME = "harshbhanushali36@gmail.com"
-PASSWORD = "Trinetra_12345678"
+
+USERNAME = os.getenv("SPACETRACK_USERNAME")
+PASSWORD = os.getenv("SPACETRACK_PASSWORD")
 LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 CATALOG_URL = "https://www.space-track.org/basicspacedata/query/class/gp/format/json"
+
 
 # --- OPTIMIZED MODES ---
 MODES = {
