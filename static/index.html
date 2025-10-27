@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TRINETRA Orbital Visualization</title>
+  <script src="https://files.worldwind.arc.nasa.gov/artifactory/web/0.11.0/worldwind.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      background: #000; 
+      overflow: hidden; 
+      height: 100vh;
+    }
+    #globe { width: 100%; height: 100%; position: absolute; }
+    .panel {
+      position: absolute;
+      background: rgba(10, 15, 30, 0.9);
+      color: #fff;
+      padding: 15px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(100, 150, 255, 0.4);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+    #controls {
+      top: 20px;
+      right: 20px;
+      width: 260px;
+    }
+    #legend {
+      bottom: 20px;
+      left: 20px;
+      width: 240px;
+    }
+    #info {
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      width: 320px;
+      max-height: 70vh;
+      overflow-y: auto;
+      display: none;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(10, 15, 30, 0.95);
+      padding: 30px 50px;
+      border-radius: 15px;
+      border: 2px solid #4af;
+      z-index: 100;
+    }
+    .spinner {
+      border: 4px solid rgba(100, 150, 255, 0.3);
+      border-top: 4px solid #4af;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h3 { 
+      margin: 0 0 15px; 
+      font-size: 17px; 
+      color: #4af; 
+      border-bottom: 2px solid rgba(100, 150, 255, 0.4);
+      padding-bottom: 10px;
+      font-weight: 600;
+    }
+    .stat { 
+      display: flex; 
+      justify-content: space-between; 
+      margin: 10px 0;
+      font-size: 14px;
+      align-items: center;
+    }
+    .stat-label { color: #aaa; }
+    .stat-value { 
+      color: #0f0; 
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+    .legend-color {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      margin-right: 12px;
+      box-shadow: 0 0 12px currentColor;
+      border: 2px solid currentColor;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+      accent-color: #4af;
+      height: 6px;
+    }
+    label { 
+      display: block; 
+      margin: 12px 0 6px;
+      font-size: 13px;
+      color: #aaa;
+      font-weight: 500;
+    }
+    .close {
+      float: right;
+      cursor: pointer;
+      font-size: 26px;
+      color: #f44;
+      line-height: 1;
+      margin-top: -8px;
+      transition: color 0.2s;
+    }
+    .close:hover { color: #f88; }
+    .info-title {
+      font-size: 18px;
+      color: #4af;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    button {
+      background: rgba(68, 170, 255, 0.2);
+      border: 1px solid #4af;
+      color: #4af;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 10px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    button:hover {
+      background: rgba(68, 170, 255, 0.4);
+    }
+    
+    /* Search and Filter Styles */
+    #searchPanel {
+      top: 20px;
+      left: 20px;
+      width: 300px;
+    }
+    .search-box {
+      width: 100%;
+      padding: 10px 15px;
+      background: rgba(20, 25, 45, 0.8);
+      border: 1px solid rgba(100, 150, 255, 0.4);
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .search-box:focus {
+      outline: none;
+      border-color: #4af;
+      box-shadow: 0 0 8px rgba(68, 170, 255, 0.5);
+    }
+    .filter-group {
+      margin: 15px 0;
+    }
+    .filter-title {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .filter-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .filter-option {
+      background: rgba(20, 25, 45, 0.8);
+      border: 1px solid rgba(100, 150, 255, 0.3);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-option:hover {
+      background: rgba(30, 35, 55, 0.9);
+    }
+    .filter-option.active {
+      background: #4af;
+      color: #000;
+      border-color: #4af;
+    }
+    .filter-option.active:hover {
+      background: #6bf;
+    }
+    .search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border-top: 1px solid rgba(100, 150, 255, 0.3);
+      padding-top: 10px;
+    }
+    .search-result {
+      padding: 8px 10px;
+      margin: 5px 0;
+      background: rgba(20, 25, 45, 0.6);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .search-result:hover {
+      background: rgba(30, 35, 55, 0.8);
+    }
+    .search-result.selected {
+      background: rgba(68, 170, 255, 0.3);
+      border-left: 3px solid #4af;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="globe"></canvas>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div style="color: #4af; text-align: center; font-size: 14px;">Loading orbital data...</div>
+  </div>
+
+  <div id="searchPanel" class="panel">
+    <h3>🔍 Search & Filter</h3>
+    <input type="text" id="searchInput" class="search-box" placeholder="Search satellites...">
+    
+    <div class="filter-group">
+      <div class="filter-title">Object Type:</div>
+      <div class="filter-options">
+        <div class="filter-option active" data-type="all">All</div>
+        <div class="filter-option" data-type="satellite">Satellites</div>
+        <div class="filter-option" data-type="rocket">Rockets</div>
+        <div class="filter-option" data-type="debris">Debris</div>
+      </div>
+    </div>
+    
+    <div class="filter-group">
+      <div class="filter-title">Orbit Type:</div>
+      <div class="filter-options">
+        <div class="filter-option active" data-orbit="all">All</div>
+        <div class="filter-option" data-orbit="leo">LEO</div>
+        <div class="filter-option" data-orbit="meo">MEO</div>
+        <div class="filter-option" data-orbit="geo">GEO</div>
+        <div class="filter-option" data-orbit="heo">HEO</div>
+      </div>
+    </div>
+    
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div id="controls" class="panel">
+    <h3>🛰️ TRINETRA</h3>
+    <label>Orbit Speed: <span id="speedVal">1.0</span>x</label>
+    <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1">
+    <div class="stat">
+      <span class="stat-label">FPS:</span>
+      <span class="stat-value" id="fps">--</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Visible:</span>
+      <span class="stat-value" id="visibleCount">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Camera View:</span>
+      <span class="stat-value" id="cameraMode">Free</span>
+    </div>
+  </div>
+
+  <div id="legend" class="panel">
+    <h3>📊 Objects</h3>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #0f0; color: #0f0;"></div>
+      <span>Satellites: <b id="satCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #f60; color: #f60;"></div>
+      <span>Rockets: <b id="rocketCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #f00; color: #f00;"></div>
+      <span>Debris: <b id="debrisCount">0</b></span>
+    </div>
+    <div class="stat" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(100,150,255,0.3);">
+      <span class="stat-label">TOTAL:</span>
+      <span class="stat-value" id="totalCount">0</span>
+    </div>
+  </div>
+
+  <div id="info" class="panel">
+    <span class="close" onclick="closeInfo()">×</span>
+    <div id="infoContent"></div>
+    <button id="followButton" onclick="toggleFollowCamera()">Follow Satellite</button>
+  </div>
+
+  <script>
+    // Initialize WorldWind
+    const wwd = new WorldWind.WorldWindow("globe");
+    wwd.addLayer(new WorldWind.BMNGOneImageLayer());
+    wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+    wwd.addLayer(new WorldWind.AtmosphereLayer());
+    wwd.addLayer(new WorldWind.StarFieldLayer());
+    wwd.addLayer(new WorldWind.CompassLayer());
+    wwd.addLayer(new WorldWind.ViewControlsLayer(wwd));
+
+    const objectLayer = new WorldWind.RenderableLayer("Objects");
+    const trailLayer = new WorldWind.RenderableLayer("Trails");
+    wwd.addLayer(objectLayer);
+    wwd.addLayer(trailLayer);
+
+    // Global variables
+    let sats = [], selected = null, trail = null;
+    let time = Date.now(), fps = 0, frames = 0, lastFps = Date.now();
+    let visibleSats = new Set();
+    let activeFilters = { type: 'all', orbit: 'all' };
+    let isFollowing = false;
+    let followCameraOffset = 500000;
+    const BASE_URL = 'https://raw.githubusercontent.com/harshbhanushali36/Trinetra/main';
+
+    // Orbit colors for different object types
+    const ORBIT_COLORS = {
+      'satellite': new WorldWind.Color(0, 1, 1, 0.8),      // Cyan for satellites
+      'payload': new WorldWind.Color(0, 1, 1, 0.8),       // Cyan for payloads
+      'rocket': new WorldWind.Color(1, 0.5, 0, 0.8),      // Orange for rockets
+      'rocket body': new WorldWind.Color(1, 0.5, 0, 0.8), // Orange for rocket bodies
+      'debris': new WorldWind.Color(1, 0, 0, 0.8)         // Red for debris
+    };
+
+    // Create proper PNG icons with adequate size
+    function createIcon(type) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      
+      const colorMap = {
+        'satellite': '#00ff00',
+        'payload': '#00ff00',
+        'rocket body': '#ff6600',
+        'rocket': '#ff6600',
+        'debris': '#ff0000'
+      };
+      
+      const color = colorMap[type.toLowerCase()] || '#ffff00';
+      
+      // Draw a proper icon based on type
+      ctx.fillStyle = color;
+      
+      if (type.toLowerCase().includes('satellite') || type.toLowerCase().includes('payload')) {
+        // Satellite icon - diamond shape
+        ctx.beginPath();
+        ctx.moveTo(32, 10);
+        ctx.lineTo(54, 32);
+        ctx.lineTo(32, 54);
+        ctx.lineTo(10, 32);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add solar panels
+        ctx.fillStyle = '#4444ff';
+        ctx.fillRect(15, 25, 34, 4);
+        ctx.fillRect(15, 35, 34, 4);
+      } else if (type.toLowerCase().includes('rocket')) {
+        // Rocket icon - triangle shape
+        ctx.beginPath();
+        ctx.moveTo(32, 10);
+        ctx.lineTo(50, 54);
+        ctx.lineTo(14, 54);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add fins
+        ctx.fillStyle = '#888888';
+        ctx.fillRect(10, 54, 8, 10);
+        ctx.fillRect(46, 54, 8, 10);
+      } else {
+        // Debris icon - irregular shape
+        ctx.beginPath();
+        ctx.arc(32, 32, 20, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add rough edges
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        ctx.arc(20, 25, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(45, 40, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Add glow effect
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, color + 'CC');
+      gradient.addColorStop(0.7, color + '44');
+      gradient.addColorStop(1, color + '00');
+      
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      
+      return canvas.toDataURL();
+    }
+
+    // Load PNG icon with fallback
+    function loadIcon(type) {
+      const iconMap = {
+        'satellite': 'satellite.png',
+        'payload': 'satellite.png',
+        'rocket body': 'rocket.png',
+        'rocket': 'rocket.png',
+        'debris': 'asteroid.png'
+      };
+      const filename = iconMap[type.toLowerCase()] || 'satellite.png';
+      const url = `${BASE_URL}/icons/${filename}`;
+      
+      return url;
+    }
+
+    // Determine orbit type based on altitude
+    function getOrbitType(altitude) {
+      if (altitude < 2000) return 'leo';
+      if (altitude < 35786) return 'meo';
+      if (altitude >= 35786 && altitude < 36000) return 'geo';
+      return 'heo';
+    }
+
+    // Filter satellites based on active filters
+    function filterSatellites() {
+      visibleSats.clear();
+      
+      sats.forEach(sat => {
+        const type = sat.type.toLowerCase();
+        const altitude = sat.positions && sat.positions.length > 0 ? 
+          sat.positions[0].altitude : 0;
+        const orbitType = getOrbitType(altitude);
+        
+        // Check type filter
+        const typeMatch = activeFilters.type === 'all' || 
+          (activeFilters.type === 'satellite' && (type.includes('satellite') || type.includes('payload'))) ||
+          (activeFilters.type === 'rocket' && type.includes('rocket')) ||
+          (activeFilters.type === 'debris' && type.includes('debris'));
+        
+        // Check orbit filter
+        const orbitMatch = activeFilters.orbit === 'all' || 
+          activeFilters.orbit === orbitType;
+        
+        // Show/hide based on filters
+        if (typeMatch && orbitMatch) {
+          sat.placemark.enabled = true;
+          visibleSats.add(sat.id);
+        } else {
+          sat.placemark.enabled = false;
+        }
+      });
+      
+      document.getElementById('visibleCount').textContent = visibleSats.size;
+      wwd.redraw();
+    }
+
+    // Search satellites
+    function searchSatellites(query) {
+      const results = sats.filter(sat => 
+        sat.name.toLowerCase().includes(query.toLowerCase()) ||
+        (sat.id && sat.id.toString().toLowerCase().includes(query.toLowerCase()))
+      );
+      
+      const resultsContainer = document.getElementById('searchResults');
+      resultsContainer.innerHTML = '';
+      
+      if (query.length === 0) return;
+      
+      if (results.length === 0) {
+        resultsContainer.innerHTML = '<div style="color: #aaa; text-align: center; padding: 10px;">No results found</div>';
+        return;
+      }
+      
+      results.slice(0, 10).forEach(sat => {
+        const result = document.createElement('div');
+        result.className = 'search-result';
+        result.textContent = `${sat.name} (${sat.type})`;
+        result.onclick = () => {
+          selectSatellite(sat);
+          resultsContainer.innerHTML = '';
+          document.getElementById('searchInput').value = '';
+        };
+        resultsContainer.appendChild(result);
+      });
+    }
+
+    // Select a satellite programmatically - FIXED ORBIT TRAIL
+    function selectSatellite(sat) {
+      closeInfo();
+      selected = sat;
+      
+      // Create orbit trail - SHOW COMPLETE ORBIT
+      if (selected.positions && selected.positions.length > 1) {
+        // Use ALL positions for the complete orbit
+        const positions = selected.positions.map(p => 
+          new WorldWind.Position(p.latitude, p.longitude, p.altitude * 1000)
+        );
+        
+        trail = new WorldWind.Path(positions);
+        trail.altitudeMode = WorldWind.RELATIVE_TO_GROUND;
+        trail.attributes = new WorldWind.ShapeAttributes(null);
+        
+        // Set orbit color based on object type
+        const orbitColor = ORBIT_COLORS[selected.type.toLowerCase()] || new WorldWind.Color(1, 1, 1, 0.8);
+        trail.attributes.outlineColor = orbitColor;
+        trail.attributes.outlineWidth = 4; // Thicker line
+        trail.attributes.drawOutline = true;
+        trail.attributes.drawInterior = false;
+        
+        // Add glow effect
+        trail.attributes.outlineStippleFactor = 1;
+        trail.attributes.outlineStipplePattern = 0xAAAA;
+        
+        trailLayer.addRenderable(trail);
+      }
+      
+      // Show info
+      const pos = selected.placemark.position;
+      const altitude = pos.altitude / 1000;
+      const orbitType = getOrbitType(altitude);
+      const orbitalPeriod = selected.orbit_period_minutes || 90;
+      
+      document.getElementById('infoContent').innerHTML = `
+        <div class="info-title">${sat.name}</div>
+        <div class="stat"><span class="stat-label">Type:</span><span class="stat-value">${sat.type || 'N/A'}</span></div>
+        <div class="stat"><span class="stat-label">ID:</span><span class="stat-value">${sat.id || 'N/A'}</span></div>
+        <div class="stat"><span class="stat-label">Altitude:</span><span class="stat-value">${Math.round(altitude)} km</span></div>
+        <div class="stat"><span class="stat-label">Orbit:</span><span class="stat-value">${orbitType.toUpperCase()}</span></div>
+        <div class="stat"><span class="stat-label">Period:</span><span class="stat-value">${orbitalPeriod.toFixed(1)} min</span></div>
+      `;
+      document.getElementById('info').style.display = 'block';
+      
+      document.getElementById('followButton').textContent = isFollowing ? 'Stop Following' : 'Follow Satellite';
+    }
+
+    // Toggle follow camera mode
+    function toggleFollowCamera() {
+      isFollowing = !isFollowing;
+      
+      if (isFollowing && selected) {
+        document.getElementById('cameraMode').textContent = 'Following';
+        document.getElementById('followButton').textContent = 'Stop Following';
+      } else {
+        document.getElementById('cameraMode').textContent = 'Free';
+        document.getElementById('followButton').textContent = 'Follow Satellite';
+      }
+    }
+
+    // Update camera to follow selected satellite
+    function updateFollowCamera() {
+      if (isFollowing && selected) {
+        const pos = selected.placemark.position;
+        const altitude = pos.altitude;
+        const offsetAltitude = altitude + followCameraOffset;
+        
+        wwd.navigator.lookAtLocation.latitude = pos.latitude;
+        wwd.navigator.lookAtLocation.longitude = pos.longitude;
+        wwd.navigator.range = offsetAltitude;
+        wwd.redraw();
+      }
+    }
+
+    function closeInfo() {
+      document.getElementById('info').style.display = 'none';
+      selected = null;
+      isFollowing = false;
+      document.getElementById('cameraMode').textContent = 'Free';
+      
+      if (trail) {
+        trailLayer.removeRenderable(trail);
+        trail = null;
+      }
+    }
+
+    // Load data from static directory
+    document.getElementById('loading').style.display = 'block';
+    
+    fetch("orbital_objects_balanced.json")
+      .then(r => r.json())
+      .then(data => {
+        const counts = { satellite: 0, rocket: 0, debris: 0, other: 0 };
+        
+        sats = data.satellites.map((s, i) => {
+          const type = (s.type || 'unknown').toLowerCase();
+          if (type.includes('satellite') || type.includes('payload')) counts.satellite++;
+          else if (type.includes('rocket')) counts.rocket++;
+          else if (type.includes('debris')) counts.debris++;
+          else counts.other++;
+          
+          const attrs = new WorldWind.PlacemarkAttributes(null);
+          
+          // Try to load PNG icon, fallback to canvas icon
+          const pngUrl = loadIcon(s.type);
+          const canvasIcon = createIcon(s.type);
+          
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            attrs.imageSource = pngUrl;
+          };
+          img.onerror = () => {
+            attrs.imageSource = canvasIcon;
+          };
+          img.src = pngUrl;
+          
+          // Set fallback initially
+          attrs.imageSource = canvasIcon;
+          attrs.imageScale = 0.08;
+          attrs.imageOffset = new WorldWind.Offset(
+            WorldWind.OFFSET_FRACTION, 0.5,
+            WorldWind.OFFSET_FRACTION, 0.5
+          );
+          
+          const pm = new WorldWind.Placemark(new WorldWind.Position(0, 0, 0), false, attrs);
+          pm.userObject = s;
+          objectLayer.addRenderable(pm);
+          
+          return { 
+            ...s, 
+            placemark: pm, 
+            idx: Math.random() * (s.positions?.length || 1), 
+            id: i, 
+            type: s.type,
+            orbit_period_minutes: s.orbit_period_minutes || 90
+          };
+        });
+        
+        document.getElementById('satCount').textContent = counts.satellite;
+        document.getElementById('rocketCount').textContent = counts.rocket;
+        document.getElementById('debrisCount').textContent = counts.debris;
+        document.getElementById('totalCount').textContent = sats.length;
+        document.getElementById('visibleCount').textContent = sats.length;
+        
+        // Initialize all as visible
+        sats.forEach(sat => visibleSats.add(sat.id));
+        
+        document.getElementById('loading').style.display = 'none';
+        animate();
+      })
+      .catch(err => {
+        console.error('Error loading orbital data:', err);
+        document.getElementById('loading').innerHTML = `
+          <div style="color: #f44; text-align: center;">
+            <h3>Error Loading Data</h3>
+            <p>Failed to load orbital_objects.json</p>
+            <p>Please ensure the file exists in the static directory</p>
+            <button onclick="location.reload()" style="margin-top: 15px;">Retry</button>
+          </div>
+        `;
+      });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const now = Date.now();
+      const dt = Math.min((now - time) / 1000, 0.1);
+      time = now;
+      
+      frames++;
+      if (now - lastFps > 1000) {
+        fps = Math.round(frames * 1000 / (now - lastFps));
+        frames = 0;
+        lastFps = now;
+        document.getElementById('fps').textContent = fps;
+      }
+      
+      const speed = parseFloat(document.getElementById('speed').value);
+      
+      // Update satellites - CONTINUOUS ORBIT FIX
+      sats.forEach(s => {
+        if (!s.positions || s.positions.length < 2) return;
+        
+        // Continuous progression - don't loop back to start
+        const orbitPeriod = s.orbit_period_minutes || 90;
+        const orbitSpeed = (s.positions.length / (orbitPeriod * 60));
+        
+        s.idx = (s.idx + dt * speed * orbitSpeed);
+        
+        // Use modulo for position lookup
+        const effectiveIdx = s.idx % s.positions.length;
+        const i = Math.floor(effectiveIdx);
+        const j = (i + 1) % s.positions.length;
+        const t = effectiveIdx - i;
+        
+        const p1 = s.positions[i], p2 = s.positions[j];
+        const lat = p1.latitude + t * (p2.latitude - p1.latitude);
+        const lon = p1.longitude + t * (p2.longitude - p1.longitude);
+        const alt = (p1.altitude + t * (p2.altitude - p1.altitude)) * 1000;
+        
+        s.placemark.position = new WorldWind.Position(lat, lon, alt);
+      });
+      
+      updateFollowCamera();
+      wwd.redraw();
+    }
+
+    // Click handler
+    wwd.addEventListener("click", e => {
+      const pick = wwd.pick(wwd.canvasCoordinates(e.clientX, e.clientY));
+      
+      if (trail) {
+        trailLayer.removeRenderable(trail);
+        trail = null;
+      }
+      
+      if (pick.objects.length > 0) {
+        const obj = pick.objects[0].userObject;
+        if (obj instanceof WorldWind.Placemark) {
+          const s = obj.userObject;
+          selected = sats.find(sat => sat.name === s.name);
+          
+          if (selected) {
+            selectSatellite(selected);
+          }
+        }
+      } else {
+        closeInfo();
+      }
+    });
+
+    // Event listeners
+    document.getElementById('speed').oninput = e => 
+      document.getElementById('speedVal').textContent = e.target.value;
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      searchSatellites(e.target.value);
+    });
+
+    // Filter option click handlers
+    document.querySelectorAll('.filter-option[data-type]').forEach(option => {
+      option.addEventListener('click', e => {
+        document.querySelectorAll('.filter-option[data-type]').forEach(opt => 
+          opt.classList.remove('active'));
+        e.target.classList.add('active');
+        activeFilters.type = e.target.dataset.type;
+        filterSatellites();
+      });
+    });
+
+    document.querySelectorAll('.filter-option[data-orbit]').forEach(option => {
+      option.addEventListener('click', e => {
+        document.querySelectorAll('.filter-option[data-orbit]').forEach(opt => 
+          opt.classList.remove('active'));
+        e.target.classList.add('active');
+        activeFilters.orbit = e.target.dataset.orbit;
+        filterSatellites();
+      });
+    });
+
+    window.onresize = () => {
+      wwd.redraw();
+    };
+  </script>
+</body>
+</html>

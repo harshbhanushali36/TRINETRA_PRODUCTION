@@ -1,0 +1,11 @@
+pandas
+requests
+openpyxl
+python-dotenv
+flask
+schedule
+python-dateutil
+tzlocal
+numpy
+matplotlib
+scipy
