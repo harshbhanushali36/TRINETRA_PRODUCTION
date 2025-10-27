@@ -1,5 +1,9 @@
 name: Auto Update Orbital Data
 
+permissions:
+  contents: write
+
+
 on:
   schedule:
     - cron: "0 */12 * * *"  # Runs every 12 hours
