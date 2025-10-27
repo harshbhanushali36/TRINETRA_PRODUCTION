@@ -1,4 +1,0 @@
-# Ignore large generated files
-data/latest/*.json
-static/*.json
-*.czml
