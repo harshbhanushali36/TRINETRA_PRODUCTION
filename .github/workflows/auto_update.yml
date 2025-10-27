@@ -1,13 +1,16 @@
 name: Auto Update Orbital Data
 
 permissions:
-  contents: write
-
+  contents: write  # allow pushing commits
 
 on:
   schedule:
     - cron: "0 */12 * * *"  # Runs every 12 hours
   workflow_dispatch:  # Allow manual trigger
+
+concurrency:
+  group: update-orbital-data
+  cancel-in-progress: true  # prevents overlapping runs
 
 jobs:
   update:
@@ -16,6 +19,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,13 +36,29 @@ jobs:
           SPACETRACK_PASSWORD: ${{ secrets.SPACETRACK_PASSWORD }}
         run: python spacetrack_fetch.py
 
+      - name: Clean up old orbital data (keep latest 3)
+        run: |
+          echo "Cleaning old raw orbital files..."
+          cd data/raw
+          # Sort by modification time and delete older ones
+          ls -t | tail -n +4 | xargs -r rm --
+          echo "Remaining files:"
+          ls -lh
+
       - name: Commit and push updates
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/latest/*.xlsx
-          git add data/raw/*.xlsx
-          git add data/latest/*.json
-          git add data/raw/*.json
+
+          git add data/latest/*.xlsx || true
+          git add data/raw/*.xlsx || true
+          git add data/latest/*.json || true
+          git add data/raw/*.json || true
+
           git commit -m "Automated orbital data update [skip ci]" || echo "No changes to commit"
-          git push
+
+          # Rebase to avoid ref lock conflicts
+          git pull --rebase origin main
+
+          # Push changes
+          git push origin main
