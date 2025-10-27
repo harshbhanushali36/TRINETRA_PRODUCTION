@@ -1,13 +1,3 @@
-{
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        }
-    ]
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:d7e2ebc920525c43e105f84c2a928982a354140b10968ec937e4f0991c699136
+size 305

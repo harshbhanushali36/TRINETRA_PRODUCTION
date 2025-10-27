@@ -1,7 +1,3 @@
-{
-  "templates": {
-    "default": {
-      "layoutFile": "jsdoc.layout.tmpl"
-    }
-  }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:64c7575d4d8e66aefd25446ee505a71e265aeece8a8af3c497294fdfce8ea52c
+size 87
