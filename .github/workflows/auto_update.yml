@@ -1,7 +1,7 @@
 name: Auto Update Orbital Data
 
 permissions:
-  contents: write  # allow pushing commits
+  contents: write  # allow pushing commits and creating releases
 
 on:
   schedule:
@@ -40,8 +40,7 @@ jobs:
         run: |
           echo "Cleaning old raw orbital files..."
           cd data/raw
-          # Sort by modification time and delete older ones
-          ls -t | tail -n +4 | xargs -r rm --
+          ls -t | tail -n +4 | xargs -r rm --  # keep latest 3 files
           echo "Remaining files:"
           ls -lh
 
@@ -56,9 +55,20 @@ jobs:
           git add data/raw/*.json || true
 
           git commit -m "Automated orbital data update [skip ci]" || echo "No changes to commit"
-
-          # Rebase to avoid ref lock conflicts
           git pull --rebase origin main
-
-          # Push changes
           git push origin main
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "orbital-update-${{ github.run_id }}"
+          name: "Automated Orbital Update - ${{ github.run_id }}"
+          body: "Latest orbital data update with ML-ready JSON and XLSX files."
+          draft: false
+          prerelease: false
+          files: |
+            data/latest/*.json
+            data/latest/*.xlsx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
