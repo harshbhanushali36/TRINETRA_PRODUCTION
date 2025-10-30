@@ -330,7 +330,7 @@
     let activeFilters = { type: 'all', orbit: 'all' };
     let isFollowing = false;
     let followCameraOffset = 500000;
-    const BASE_URL = 'https://raw.githubusercontent.com/harshbhanushali36/Trinetra/main';
+    const GITHUB_DATA_URL = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/data/latest/orbital_objects.json.gz';
 
     // Orbit colors for different object types
     const ORBIT_COLORS = {
@@ -426,7 +426,7 @@
         'debris': 'asteroid.png'
       };
       const filename = iconMap[type.toLowerCase()] || 'satellite.png';
-      const url = `${BASE_URL}/icons/${filename}`;
+      const url = `https://raw.githubusercontent.com/harshbhanushali36/Trinetra/main/icons/${filename}`;
       
       return url;
     }
@@ -590,12 +590,46 @@
       }
     }
 
-    // Load data from static directory
+    // Decompress gzipped data
+    async function decompressGzip(compressedData) {
+      try {
+        // Create a decompression stream
+        const ds = new DecompressionStream('gzip');
+        const decompressedStream = new Response(compressedData).body.pipeThrough(ds);
+        return await new Response(decompressedStream).arrayBuffer();
+      } catch (error) {
+        console.error('Error decompressing data:', error);
+        throw error;
+      }
+    }
+
+    // Load data from GitHub repository
     document.getElementById('loading').style.display = 'block';
     
-    fetch("orbital_objects_balanced.json")
-      .then(r => r.json())
-      .then(data => {
+    fetch(GITHUB_DATA_URL)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Check if the blob is gzipped
+        if (blob.type === 'application/gzip' || blob.type === 'application/x-gzip' || 
+            GITHUB_DATA_URL.endsWith('.gz')) {
+          return decompressGzip(blob);
+        } else {
+          return blob.arrayBuffer();
+        }
+      })
+      .then(arrayBuffer => {
+        // Convert array buffer to text
+        const decoder = new TextDecoder('utf-8');
+        const jsonText = decoder.decode(arrayBuffer);
+        
+        // Parse JSON data
+        const data = JSON.parse(jsonText);
+        
         const counts = { satellite: 0, rocket: 0, debris: 0, other: 0 };
         
         sats = data.satellites.map((s, i) => {
@@ -660,8 +694,8 @@
         document.getElementById('loading').innerHTML = `
           <div style="color: #f44; text-align: center;">
             <h3>Error Loading Data</h3>
-            <p>Failed to load orbital_objects.json</p>
-            <p>Please ensure the file exists in the static directory</p>
+            <p>Failed to load orbital data from GitHub</p>
+            <p>Error: ${err.message}</p>
             <button onclick="location.reload()" style="margin-top: 15px;">Retry</button>
           </div>
         `;
