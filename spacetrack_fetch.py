@@ -13,6 +13,7 @@ from tqdm import tqdm
 from collections import Counter
 import statistics
 import os
+import gzip  # ✅ added for compression
 
 # ----------------------- 
 # User / runtime params
@@ -23,7 +24,6 @@ PASSWORD = os.getenv("SPACETRACK_PASSWORD")
 LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 CATALOG_URL = "https://www.space-track.org/basicspacedata/query/class/gp/format/json"
 
-
 # --- OPTIMIZED MODES ---
 MODES = {
     "HIGH_ACCURACY": {"DURATION_HOURS": 24, "STEP_SECONDS": 1800},  # 24 hours, 30-min steps = 72 positions
@@ -32,10 +32,10 @@ MODES = {
 
 # Object filter - GET ALL OBJECTS
 WANTED_TYPES = {}  # Empty set = all object types
-TLE_MAX_AGE_DAYS = 15  # Only recent TLEs (15 days)
+TLE_MAX_AGE_DAYS = 5  # Only recent TLEs (5 days)
 
-# Limit objects for performance (adjust based on your needs)
-MAX_OBJECTS = None  # Set to None to get all, or use a number like 10000
+# Limit objects for performance
+MAX_OBJECTS = None  # Set None to get all, or number like 10000
 
 # ----------------------- 
 # Utility functions (unchanged)
@@ -60,7 +60,6 @@ def teme_to_ecef_km(r_teme_km, dt_utc):
     return rotate_z(r_teme_km, gmst)
 
 def xyz_to_lat_lon_alt(x_m, y_m, z_m):
-    """Convert ECEF XYZ (meters) to latitude, longitude, altitude"""
     a = 6378137.0
     f = 1 / 298.257223563
     e2 = 2 * f - f * f
@@ -113,22 +112,17 @@ def satrec_epoch_to_datetime(sat):
         return None
 
 def calculate_orbit_period(mean_motion):
-    """Calculate orbital period in minutes from mean motion (revs/day)"""
     if mean_motion <= 0:
-        return 1440  # Default to 24 hours if invalid
-    return 1440.0 / mean_motion  # 1440 minutes in a day
+        return 1440
+    return 1440.0 / mean_motion
 
 # ----------------------- 
 # Main function
 # ----------------------- 
 def generate_satellite_json(run_mode="HIGH_ACCURACY"):
-    # Create directories if they don't exist
     os.makedirs("data/latest", exist_ok=True)
     os.makedirs("data/raw", exist_ok=True)
     
-    # ----------------------- 
-    # 1) Fetch
-    # ----------------------- 
     session = requests.Session()
     resp = session.post(LOGIN_URL, data={"identity": USERNAME, "password": PASSWORD})
     resp.raise_for_status()
@@ -159,9 +153,6 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
     columns_to_keep = list(rename_map.values())
     df_filtered = df[[col for col in columns_to_keep if col in df.columns]]
 
-    # ----------------------- 
-    # 2) Mode selection
-    # ----------------------- 
     DURATION_HOURS = MODES[run_mode]["DURATION_HOURS"]
     STEP_SECONDS = MODES[run_mode]["STEP_SECONDS"]
 
@@ -179,9 +170,6 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
     print(f"TLE max age: {TLE_MAX_AGE_DAYS} days")
     print(f"Getting ALL object types")
 
-    # ----------------------- 
-    # 3) Build candidate list - ALL OBJECTS
-    # ----------------------- 
     candidates = []
     for idx, row in df_filtered.iterrows():
         obj_type = row.get("Type", "UNKNOWN")
@@ -189,32 +177,23 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
         tle2 = row.get("TLE Line 2")
         if pd.isna(tle1) or pd.isna(tle2):
             continue
-
-        # GET ALL OBJECTS - no type filtering
         name = str(row.get("Name") or row.get("ID") or f"object_{idx}")
-
-        # Get mean motion for orbit period calculation
         mean_motion = row.get("Mean Motion")
         if mean_motion is not None:
             try:
                 orbit_period = calculate_orbit_period(float(mean_motion))
             except:
-                orbit_period = 90  # Default LEO period
+                orbit_period = 90
         else:
-            orbit_period = 90  # Default LEO period
-
+            orbit_period = 90
         candidates.append((name, tle1.strip(), tle2.strip(), obj_type, orbit_period))
 
-    # Apply object limit if specified
     if MAX_OBJECTS and len(candidates) > MAX_OBJECTS:
         print(f"Limiting objects from {len(candidates)} to {MAX_OBJECTS}")
         candidates = candidates[:MAX_OBJECTS]
 
     print(f"Found {len(candidates)} TLE candidates (ALL OBJECT TYPES).")
 
-    # ----------------------- 
-    # 4) Propagation
-    # ----------------------- 
     satellites = []
     objects_written = 0
     objects_skipped_tle_age = 0
@@ -305,9 +284,6 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
         objects_written += 1
         type_counts[display_type] += 1
 
-    # ----------------------- 
-    # 5) Build final JSON structure
-    # ----------------------- 
     json_data = {
         "metadata": {
             "generated": datetime.now(timezone.utc).isoformat(),
@@ -332,28 +308,26 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
         "satellites": satellites
     }
 
-    # Generate timestamp for raw files
     from datetime import timezone as tz
     IST = tz(timedelta(hours=5, minutes=30))
     timestamp = datetime.now(IST).strftime("%Y%m%d_%H%M%S")
 
     # ----------------------- 
-    # 6) Save files
+    # 6) Save compressed JSON files
     # ----------------------- 
-    
-    # Save JSON to data/latest/ (without mode suffix)
-    latest_json = "data/latest/orbital_objects.json"
-    with open(latest_json, 'w') as f:
+    latest_json = "data/latest/orbital_objects.json.gz"
+    with gzip.open(latest_json, "wt", encoding="utf-8") as f:
         json.dump(json_data, f, indent=2)
-    print(f"\n✅ Latest JSON saved to {latest_json}")
-    
-    # Save JSON to data/raw/ (with timestamp)
-    raw_json = f"data/raw/orbital_objects_{timestamp}.json"
-    with open(raw_json, 'w') as f:
+    print(f"\n✅ Latest compressed JSON saved to {latest_json}")
+
+    raw_json = f"data/raw/orbital_objects_{timestamp}.json.gz"
+    with gzip.open(raw_json, "wt", encoding="utf-8") as f:
         json.dump(json_data, f, indent=2)
-    print(f"✅ Raw JSON saved to {raw_json}")
-    
-    # Create Excel file with summary data
+    print(f"✅ Raw compressed JSON saved to {raw_json}")
+
+    # ----------------------- 
+    # Excel (unchanged)
+    # ----------------------- 
     excel_data = []
     for sat in satellites:
         excel_data.append({
@@ -369,22 +343,18 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
         })
     
     excel_df = pd.DataFrame(excel_data)
-    
-    # Save Excel to data/latest/ (without mode suffix)
     latest_excel = "data/latest/orbital_objects.xlsx"
     excel_df.to_excel(latest_excel, index=False, engine='openpyxl')
     print(f"✅ Latest Excel saved to {latest_excel}")
-    
-    # Save Excel to data/raw/ (with timestamp)
+
     raw_excel = f"data/raw/orbital_objects_{timestamp}.xlsx"
     excel_df.to_excel(raw_excel, index=False, engine='openpyxl')
     print(f"✅ Raw Excel saved to {raw_excel}")
 
-    # Calculate file sizes
-    json_size = os.path.getsize(latest_json) / (1024 * 1024)  # MB
-    excel_size = os.path.getsize(latest_excel) / (1024 * 1024)  # MB
+    json_size = os.path.getsize(latest_json) / (1024 * 1024)
+    excel_size = os.path.getsize(latest_excel) / (1024 * 1024)
     print(f"\nFile sizes:")
-    print(f"  JSON: {json_size:.2f} MB")
+    print(f"  Compressed JSON: {json_size:.2f} MB")
     print(f"  Excel: {excel_size:.2f} MB")
 
     return json_data
@@ -392,7 +362,7 @@ def generate_satellite_json(run_mode="HIGH_ACCURACY"):
 # ----------------------- 
 # Example usage
 # ----------------------- 
-RUN_MODE = "BALANCED"  # Use "BALANCED" or "HIGH_ACCURACY"
+RUN_MODE = "BALANCED"
 
 if __name__ == "__main__":
     result = generate_satellite_json(RUN_MODE)
