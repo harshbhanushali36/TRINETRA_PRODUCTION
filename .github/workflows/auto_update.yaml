@@ -1,8 +1,7 @@
 name: Auto Update SpaceTrack Data
 
 permissions:
-  contents: write
-
+  contents: write  # ✅ gives push access
 
 on:
   schedule:
@@ -18,7 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          lfs: true  # ✅ Includes LFS objects if used
+          token: ${{ secrets.GITHUB_TOKEN }}  # ✅ required for push
+          lfs: true
 
       # Step 2: Set up Python environment
       - name: Set up Python
@@ -37,15 +37,16 @@ jobs:
         env:
           SPACETRACK_USERNAME: ${{ secrets.SPACETRACK_USERNAME }}
           SPACETRACK_PASSWORD: ${{ secrets.SPACETRACK_PASSWORD }}
-        run: |
-          python spacetrack_fetch.py
+        run: python spacetrack_fetch.py
 
       # Step 5: Commit and push updates if files changed
       - name: Commit and push updates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # ✅ ensures authenticated push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git add data/latest/*.json.gz data/latest/*.xlsx || true
           git add data/raw/*.json.gz data/raw/*.xlsx || true
 
@@ -53,5 +54,5 @@ jobs:
             echo "No new changes to commit."
           else
             git commit -m "🔄 Auto-update satellite data (12h refresh)"
-            git push origin main
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main
           fi
