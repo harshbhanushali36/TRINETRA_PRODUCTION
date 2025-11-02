@@ -10,6 +10,9 @@
   <!-- satellite.js for TLE propagation -->
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
 
+  <!-- Pako for gzip decompression - rock solid library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <style>
@@ -116,20 +119,22 @@
   <script>
   /****************************************************************
    * Live TRINETRA index.html
-   * - loads tles.json.br & sat_info.json.br (brotli)
+   * - loads tles.json.gz & sat_info.json.gz (gzip)
    * - propagates in-browser with satellite.js (live positions)
    * - renders with NASA WorldWind (placemarks + trails + follow-view)
    ****************************************************************/
 
   // --------- Config / URLs ----------
   const GITHUB_BASE_RAW = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/data/latest';
-  const TLES_URL = `${GITHUB_BASE_RAW}/tles.json.br`;
-  const SATINFO_URL = `${GITHUB_BASE_RAW}/sat_info.json.br`;
+  const TLES_URL = `${GITHUB_BASE_RAW}/tles.json.gz`;
+  const SATINFO_URL = `${GITHUB_BASE_RAW}/sat_info.json.gz`;
 
   // animation/update intervals (ms)
-  const PROPAGATION_UPDATE_MS = 1000; // recompute position every second
+  const PROPAGATION_UPDATE_MS = 5000; // recompute accurate position every 5 seconds
   const TRAIL_POINTS = 48;            // points when drawing orbit trails
   const TRAIL_DURATION_MINUTES = 90;  // generate trail for next N minutes (approx)
+  const BATCH_SIZE = 500;             // progressive loading: satellites per batch
+  const BATCH_DELAY_MS = 50;          // delay between batches for smooth rendering
 
   // --------- Setup WorldWind ----------
   const wwd = new WorldWind.WorldWindow("globe");
@@ -168,68 +173,49 @@
     'unknown': new WorldWind.Color(0.8, 0.8, 0.8, 0.9)
   };
 
-  // Helper: small icon canvas fallback
-  function createIconDataUrl(type){
-    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    const cmap = { satellite:'#00ff00', payload:'#00ff00', 'rocket body':'#ff6600', rocket:'#ff6600', debris:'#ff0000' };
-    const color = (cmap[type.toLowerCase()] || '#ffff00');
-    ctx.fillStyle = color;
-    if(type.toLowerCase().includes('satellite') || type.toLowerCase().includes('payload')){
-      ctx.beginPath(); ctx.moveTo(32,10); ctx.lineTo(54,32); ctx.lineTo(32,54); ctx.lineTo(10,32); ctx.closePath(); ctx.fill();
-      ctx.fillStyle='#4444ff'; ctx.fillRect(15,25,34,4); ctx.fillRect(15,35,34,4);
-    } else if(type.toLowerCase().includes('rocket')){
-      ctx.beginPath(); ctx.moveTo(32,10); ctx.lineTo(50,54); ctx.lineTo(14,54); ctx.closePath(); ctx.fill();
-    } else { ctx.beginPath(); ctx.arc(32,32,18,0,Math.PI*2); ctx.fill(); }
-    return canvas.toDataURL();
+  // Icon URLs from your GitHub repo
+  const GITHUB_ICONS_BASE = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons';
+  const ICON_URLS = {
+    'satellite': `${GITHUB_ICONS_BASE}/satellite.png`,
+    'payload': `${GITHUB_ICONS_BASE}/satellite.png`,
+    'rocket': `${GITHUB_ICONS_BASE}/rocket.png`,
+    'rocket body': `${GITHUB_ICONS_BASE}/rocket.png`,
+    'debris': `${GITHUB_ICONS_BASE}/debris.png`,
+    'unknown': `${GITHUB_ICONS_BASE}/satellite.png`
+  };
+
+  // Get icon URL for a satellite type
+  function getIconUrl(type) {
+    const lowerType = (type || 'unknown').toLowerCase();
+    
+    if (lowerType.includes('satellite') || lowerType.includes('payload')) {
+      return ICON_URLS.satellite;
+    } else if (lowerType.includes('rocket')) {
+      return ICON_URLS.rocket;
+    } else if (lowerType.includes('debris')) {
+      return ICON_URLS.debris;
+    }
+    
+    return ICON_URLS.unknown;
   }
 
-  // --------- Simple Brotli Decompression using dynamic import ----------
-  async function decompressBrotli(compressedData) {
+  // --------- Gzip Decompression using Pako ----------
+  async function decompressGzip(compressedData) {
+    if (typeof pako === 'undefined') {
+      throw new Error('Pako library not loaded. Please refresh the page.');
+    }
+    
     try {
-      // Try modern browser DecompressionStream first
-      if (typeof DecompressionStream !== 'undefined') {
-        const ds = new DecompressionStream('br');
-        const stream = new Blob([compressedData]).stream().pipeThrough(ds);
-        const decompressed = await new Response(stream).arrayBuffer();
-        return new Uint8Array(decompressed);
-      }
-    } catch (e) {
-      console.log('Native DecompressionStream not available, loading external decoder...');
-    }
-    
-    // Fallback: Load brotli decoder dynamically
-    if (typeof window.brotliDecoder === 'undefined') {
-      try {
-        // Load a simple, reliable brotli decoder
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/brotli@1.3.3/decompress.js';
-        document.head.appendChild(script);
-        
-        // Wait for it to load
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load brotli decoder'));
-          setTimeout(() => reject(new Error('Brotli decoder load timeout')), 10000);
-        });
-        
-        // Wait a bit more for the library to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (loadError) {
-        throw new Error('Could not load Brotli decoder library. Please check your internet connection.');
-      }
-    }
-    
-    // Try using the loaded decoder
-    if (typeof brotli !== 'undefined' && typeof brotli.decompress === 'function') {
       const inputArray = new Uint8Array(compressedData);
-      return brotli.decompress(inputArray);
+      const decompressed = pako.inflate(inputArray);
+      return decompressed;
+    } catch(err) {
+      console.error('Gzip decompression error:', err);
+      throw new Error('Failed to decompress gzip data: ' + err.message);
     }
-    
-    throw new Error('Brotli decompression not available. Your browser may not support this feature.');
   }
 
-  // --------- Fetch and decompress brotli files ----------
+  // --------- Fetch and decompress gzip files ----------
   async function fetchData(url, progressText) {
     document.getElementById('loadingMsg').textContent = progressText || `Fetching ${url}`;
     
@@ -240,7 +226,7 @@
       const buf = await res.arrayBuffer();
       document.getElementById('loadingMsg').textContent = 'Decompressing data...';
       
-      const decompressed = await decompressBrotli(buf);
+      const decompressed = await decompressGzip(buf);
       const text = new TextDecoder('utf-8').decode(decompressed);
       return JSON.parse(text);
     } catch(err) {
@@ -261,6 +247,20 @@
     const lon = satellite.degreesLong(geo.longitude);
     const altKm = geo.height; // km
     return { lat, lon, alt: altKm * 1000, rawPosECI: p.position };
+  }
+
+  // Interpolate between two positions for smooth animation
+  function interpolatePosition(pos1, pos2, t) {
+    if (!pos1 || !pos2) return pos1 || pos2;
+    
+    // Smooth interpolation factor (ease in-out)
+    const smoothT = t * t * (3 - 2 * t);
+    
+    return {
+      lat: pos1.lat + (pos2.lat - pos1.lat) * smoothT,
+      lon: pos1.lon + (pos2.lon - pos1.lon) * smoothT,
+      alt: pos1.alt + (pos2.alt - pos1.alt) * smoothT
+    };
   }
 
   // generate an approximate orbit trail (future positions) — used on-demand
@@ -285,8 +285,10 @@
   // add placemark for a satellite (and keep reference in sats array)
   function makePlacemarkForSat(s){
     const attrs = new WorldWind.PlacemarkAttributes(null);
-    attrs.imageSource = createIconDataUrl(s.type || 'unknown');
-    attrs.imageScale = 0.08;
+    
+    // Use real PNG icons from GitHub repo
+    attrs.imageSource = getIconUrl(s.type);
+    attrs.imageScale = 0.05; // Slightly larger for better visibility
     attrs.imageOffset = new WorldWind.Offset(WorldWind.OFFSET_FRACTION, 0.5, WorldWind.OFFSET_FRACTION, 0.5);
 
     // initial placeholder position at (0,0,0) before propagation
@@ -342,11 +344,11 @@
   // ---------- Main loading + initialization ----------
   (async function main(){
     try{
-      // Load TLE + info files (compressed or uncompressed based on USE_COMPRESSED flag)
+      // Load gzip compressed TLE + info files
       document.getElementById('loadingMsg').textContent = 'Fetching satellite data...';
       const [tlesArr, infoObj] = await Promise.all([
-        fetchData(TLES_URL, 'Downloading TLE data...'),
-        fetchData(SATINFO_URL, 'Downloading satellite info...')
+        fetchData(TLES_URL, 'Downloading TLE data (gzip)...'),
+        fetchData(SATINFO_URL, 'Downloading satellite info (gzip)...')
       ]);
 
       // store metadata map
@@ -374,8 +376,10 @@
           type: String(type),
           orbit_period_minutes: meta.period || null,
           position: null, // {lat,lon,alt}
+          nextPosition: null, // for smooth interpolation
           placemark: null,
           lastPropagated: null,
+          satrec: null, // store satellite record for faster propagation
           idx: Math.random() * 1000
         };
 
@@ -396,14 +400,15 @@
       document.getElementById('rocketCount').textContent = counts.rocket;
       document.getElementById('debrisCount').textContent = counts.debris;
       document.getElementById('totalCount').textContent = sats.length;
-      sats.forEach(s=>visibleSats.add(s.id));
-      document.getElementById('visibleCount').textContent = visibleSats.size;
+
+      // Progressive loading: load and render in batches
+      document.getElementById('loadingMsg').textContent = 'Loading satellites progressively...';
+      await loadSatellitesInBatches();
 
       // hide loading
       document.getElementById('loading').style.display = 'none';
 
-      // initial propagation and start loops
-      await propagateAllOnce();
+      // start animation loops
       startAnimationLoops();
     } catch(err){
       console.error(err);
@@ -419,39 +424,113 @@
 
   // ---------- Propagation + Animation ----------
   let lastFPS = Date.now(), frames = 0;
-  let lastPropagate = 0;
+  let lastPropagateTime = 0;
+  let animationStartTime = Date.now();
+
+  // Progressive loading: process satellites in batches
+  async function loadSatellitesInBatches() {
+    const totalBatches = Math.ceil(sats.length / BATCH_SIZE);
+    
+    for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+      const start = batchIdx * BATCH_SIZE;
+      const end = Math.min(start + BATCH_SIZE, sats.length);
+      const batch = sats.slice(start, end);
+      
+      // Update loading message
+      const progress = Math.round((end / sats.length) * 100);
+      document.getElementById('loadingMsg').textContent = 
+        `Loading satellites: ${end}/${sats.length} (${progress}%)`;
+      
+      // Propagate positions for this batch (current and next position for interpolation)
+      const now = new Date();
+      const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
+      
+      for (const s of batch) {
+        // Store satrec for faster updates
+        if (!s.satrec) {
+          s.satrec = satellite.twoline2satrec(s.tle1, s.tle2);
+        }
+        
+        const pos = propPositionFromTLE(s.tle1, s.tle2, now);
+        const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
+        
+        if (pos) {
+          s.position = pos;
+          s.nextPosition = nextPos;
+          s.lastPropagated = now;
+          s.placemark.position = new WorldWind.Position(pos.lat, pos.lon, pos.alt);
+          visibleSats.add(s.id);
+        }
+      }
+      
+      // Update visible count
+      document.getElementById('visibleCount').textContent = visibleSats.size;
+      
+      // Redraw to show progress
+      wwd.redraw();
+      
+      // Small delay between batches to keep UI responsive
+      if (batchIdx < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
+    
+    // Store initial propagation time
+    lastPropagateTime = Date.now();
+    animationStartTime = lastPropagateTime;
+  }
 
   async function propagateAllOnce(){
     const now = new Date();
+    const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
+    
     for(const s of sats){
       const pos = propPositionFromTLE(s.tle1, s.tle2, now);
+      const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
+      
       if(pos){
         s.position = pos;
+        s.nextPosition = nextPos;
         s.lastPropagated = now;
-        // update placemark position
-        s.placemark.position = new WorldWind.Position(pos.lat, pos.lon, pos.alt);
       }
     }
-    wwd.redraw();
+    
+    lastPropagateTime = Date.now();
+    animationStartTime = lastPropagateTime;
   }
 
   function startAnimationLoops(){
-    // propagation update timer
+    // propagation update timer - calculate new accurate positions every 5 seconds
     setInterval(async ()=>{
       try {
         await propagateAllOnce();
       } catch(e){ console.warn('Propagation update error', e); }
     }, PROPAGATION_UPDATE_MS);
 
-    // render animation loop (fps counter, follow camera updates)
+    // render animation loop with smooth interpolation at 60fps
     function frame(){
       requestAnimationFrame(frame);
-      // FPS
-      frames++;
+      
       const now = Date.now();
+      
+      // FPS counter
+      frames++;
       if(now - lastFPS > 1000){
         document.getElementById('fps').textContent = Math.round(frames * 1000 / (now - lastFPS));
-        frames = 0; lastFPS = now;
+        frames = 0; 
+        lastFPS = now;
+      }
+
+      // Calculate interpolation factor (0 to 1) between propagation updates
+      const timeSinceLastProp = now - lastPropagateTime;
+      const interpolationFactor = Math.min(timeSinceLastProp / PROPAGATION_UPDATE_MS, 1);
+
+      // Update all satellite positions with smooth interpolation
+      for (const s of sats) {
+        if (s.position && s.nextPosition && s.placemark.enabled) {
+          const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
+          s.placemark.position = new WorldWind.Position(smoothPos.lat, smoothPos.lon, smoothPos.alt);
+        }
       }
 
       // update placemark sizes/visibility based on filters
@@ -460,12 +539,12 @@
       // follow camera if active
       if(isFollowing && followSatelliteId !== null){
         const s = sats.find(x=>String(x.id)===String(followSatelliteId));
-        if(s && s.position){
-          const pos = s.position;
-          wwd.navigator.lookAtLocation.latitude = pos.lat;
-          wwd.navigator.lookAtLocation.longitude = pos.lon;
+        if(s && s.position && s.nextPosition){
+          const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
+          wwd.navigator.lookAtLocation.latitude = smoothPos.lat;
+          wwd.navigator.lookAtLocation.longitude = smoothPos.lon;
           // range based on altitude: low alt => closer; high alt => farther
-          const range = Math.max(100000, (pos.alt + 200000));
+          const range = Math.max(100000, (smoothPos.alt + 200000));
           wwd.navigator.range = range;
         }
       }
