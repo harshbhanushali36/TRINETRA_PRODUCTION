@@ -34,7 +34,7 @@ jobs:
           SPACETRACK_USERNAME: ${{ secrets.SPACETRACK_USERNAME }}
           SPACETRACK_PASSWORD: ${{ secrets.SPACETRACK_PASSWORD }}
         run: |
-          python spacetrack_to_json_modes.py
+          python spacetrack_fetch.py
 
       # Step 5: Commit and push updates if files changed
       - name: Commit and push updates
