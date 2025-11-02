@@ -5,17 +5,17 @@ This script:
   • Fetches all active orbital objects (payloads, debris, rockets, unknown)
     with TLE age < 5 days
   • Generates:
-      - data/latest/tles.json.br  → For satellite.js live propagation
-      - data/latest/sat_info.json.br → For metadata popups
-      - data/raw/<timestamped>.json.br → For historical records
-  • Brotli compression for ultra-fast frontend loading
+      - data/latest/tles.json.gz  → For satellite.js live propagation
+      - data/latest/sat_info.json.gz → For metadata popups
+      - data/raw/<timestamped>.json.gz → For historical records
+  • Gzip compression for ultra-fast frontend loading
 """
 
 import os
 import requests
 import pandas as pd
 import json
-import brotli
+import gzip
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -119,23 +119,23 @@ sat_info = {
 }
 
 # =============================================
-# SAVE COMPRESSED FILES (.br)
+# SAVE COMPRESSED FILES (.gz)
 # =============================================
 timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
 # Save timestamped versions in /raw/
-raw_tles_path = os.path.join(OUTPUT_RAW, f"tles_{timestamp}.json.br")
-raw_info_path = os.path.join(OUTPUT_RAW, f"sat_info_{timestamp}.json.br")
+raw_tles_path = os.path.join(OUTPUT_RAW, f"tles_{timestamp}.json.gz")
+raw_info_path = os.path.join(OUTPUT_RAW, f"sat_info_{timestamp}.json.gz")
 
-with open(raw_tles_path, "wb") as f:
-    f.write(brotli.compress(json.dumps(tles_data).encode("utf-8")))
+with gzip.open(raw_tles_path, "wt", encoding="utf-8") as f:
+    json.dump(tles_data, f)
 
-with open(raw_info_path, "wb") as f:
-    f.write(brotli.compress(json.dumps(sat_info).encode("utf-8")))
+with gzip.open(raw_info_path, "wt", encoding="utf-8") as f:
+    json.dump(sat_info, f)
 
 # Save/overwrite latest versions in /latest/
-latest_tles = os.path.join(OUTPUT_LATEST, "tles.json.br")
-latest_info = os.path.join(OUTPUT_LATEST, "sat_info.json.br")
+latest_tles = os.path.join(OUTPUT_LATEST, "tles.json.gz")
+latest_info = os.path.join(OUTPUT_LATEST, "sat_info.json.gz")
 
 for src, dst in [(raw_tles_path, latest_tles), (raw_info_path, latest_info)]:
     with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
@@ -154,7 +154,7 @@ for obj_type, count in type_counts.items():
 print(f"\n✅ Files Saved:")
 print(f"   • Latest TLEs → {latest_tles} ({tles_size:.2f} KB)")
 print(f"   • Latest Info → {latest_info} ({info_size:.2f} KB)")
-print(f"   • Archived raw data → data/raw/tles_{timestamp}.json.br & sat_info_{timestamp}.json.br")
+print(f"   • Archived raw data → data/raw/tles_{timestamp}.json.gz & sat_info_{timestamp}.json.gz")
 
 print(f"\n🛰️ Total orbital objects processed: {len(df)}")
 print("🚀 Done.")
