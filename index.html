@@ -39,7 +39,7 @@
     }
     
     /* Additional fallback for any missed elements */
-    h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label {
+    h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label, select {
       font-family: 'Iceland', sans-serif;
     }
     
@@ -47,9 +47,10 @@
       width: 100%; 
       height: 100%; 
       position: absolute; 
+      background: radial-gradient(circle at center, #0a0a2a 0%, #050515 100%);
     }
     
-    /* Glass-morphism panels matching Home.js */
+    /* Glass-morphism panels matching Home.js - Consistent sizing */
     .panel { 
       position: absolute;
       background: rgba(26, 26, 74, 0.4);
@@ -62,6 +63,7 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
       z-index: 10;
       transition: all 0.3s ease;
+      width: 320px; /* Consistent width for all panels */
     }
     
     .panel:hover {
@@ -72,20 +74,17 @@
     #controls { 
       top: 20px; 
       right: 20px; 
-      width: 280px; 
     }
     
     #legend { 
       bottom: 20px; 
       left: 20px; 
-      width: 260px; 
     }
     
     /* FIXED: Info panel positioning - now positioned below controls */
     #info { 
       top: 120px;  /* Positioned below controls */
       right: 20px; 
-      width: 340px; 
       max-height: calc(100vh - 160px); /* Prevent overflow */
       overflow-y: auto;
       display: none;
@@ -124,6 +123,7 @@
       border: 2px solid rgba(120, 219, 255, 0.5);
       box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
       z-index: 100;
+      text-align: center;
     }
     
     .spinner { 
@@ -134,11 +134,22 @@
       height: 50px;
       animation: spin 0.8s linear infinite;
       margin: 0 auto 20px;
+      box-shadow: 0 0 20px rgba(120, 219, 255, 0.5);
     }
     
     @keyframes spin { 
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); } 
+    }
+    
+    /* Enhanced loading text with glow effect */
+    .loading-text {
+      color: #78dbff;
+      text-align: center;
+      font-size: 16px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px rgba(120, 219, 255, 0.7);
+      letter-spacing: 1px;
     }
     
     /* Headers */
@@ -150,6 +161,7 @@
       border-bottom: 2px solid rgba(120, 219, 255, 0.3);
       padding-bottom: 12px;
       letter-spacing: 1px; /* Add letter spacing for better readability */
+      text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
     }
     
     /* Stats */
@@ -175,7 +187,7 @@
       letter-spacing: 0.5px;
     }
     
-    /* Legend items */
+    /* Legend items - using PNG icons instead of colored dots */
     .legend-item { 
       display: flex;
       align-items: center;
@@ -184,13 +196,15 @@
       font-weight: 400; /* Regular weight */
     }
     
-    .legend-color { 
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
+    .legend-icon { 
+      width: 24px;
+      height: 24px;
       margin-right: 14px;
-      box-shadow: 0 0 16px currentColor;
-      border: 2px solid currentColor;
+      transition: all 0.3s ease;
+    }
+    
+    .legend-icon:hover {
+      transform: scale(1.2);
     }
     
     /* Range slider - modern style */
@@ -201,7 +215,6 @@
       background: rgba(120, 219, 255, 0.2);
       border-radius: 3px;
       outline: none;
-      -webkit-appearance: none;
     }
     
     input[type="range"]::-webkit-slider-thumb {
@@ -282,6 +295,8 @@
       width: 100%;
       text-transform: none;
       letter-spacing: 1px; /* Add letter spacing */
+      position: relative;
+      overflow: hidden;
     }
     
     button:hover { 
@@ -294,11 +309,25 @@
       transform: translateY(0);
     }
     
+    button::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    button:hover::after {
+      left: 100%;
+    }
+    
     /* Search panel */
     #searchPanel { 
       top: 20px;
       left: 20px;
-      width: 320px;
     }
     
     /* Search box - modern glass style */
@@ -379,6 +408,40 @@
       box-shadow: 0 0 24px rgba(120, 219, 255, 0.7);
     }
     
+    /* Professional dropdown for orbit types */
+    .dropdown {
+      width: 100%;
+      padding: 12px 18px;
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 18px;
+      transition: all 0.3s ease;
+      outline: none;
+      font-family: 'Iceland', sans-serif;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2378dbff' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 18px center;
+      background-size: 12px;
+    }
+    
+    .dropdown:focus {
+      border-color: #78dbff;
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+      background-color: rgba(10, 10, 42, 0.7);
+    }
+    
+    .dropdown option {
+      background: #1a1a4a;
+      color: white;
+    }
+    
     /* Search results */
     .search-results { 
       max-height: 220px;
@@ -435,14 +498,34 @@
       font-weight: 400; /* Regular weight */
     }
     
+    /* Background stars effect */
+    .stars {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+    
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle 5s infinite ease-in-out;
+    }
+    
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    
     /* Responsive adjustments */
     @media (max-width: 768px) {
       .panel {
         padding: 16px 20px;
         border-radius: 12px;
-      }
-      
-      #searchPanel, #controls, #legend, #info {
         width: calc(100% - 40px);
         max-width: 320px;
       }
@@ -483,15 +566,24 @@
     .panel {
       animation: fadeIn 0.5s ease-out;
     }
+    
+    /* Enhanced glow effects */
+    .glow {
+      text-shadow: 0 0 10px currentColor;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Background stars -->
+  <div class="stars" id="stars"></div>
 
   <canvas id="globe"></canvas>
 
   <div id="loading">
     <div class="spinner"></div>
-    <div style="color:#4af; text-align:center; font-size:16px;">Loading live TLE data & initializing...</div>
+    <div class="loading-text">TRINETRA</div>
+    <div class="loading-text">Loading live satellite data & initializing globe...</div>
     <div id="loadingMsg" style="color:#9cf; text-align:center; margin-top:8px; font-size:14px;"></div>
   </div>
 
@@ -501,7 +593,7 @@
     <input type="text" id="searchInput" class="search-box" placeholder="Search satellites...">
 
     <div class="filter-group">
-      <div class="filter-title">Object Type:</div>
+      <div class="filter-title">OBJECT TYPE:</div>
       <div class="filter-options">
         <div class="filter-option active" data-type="all">All</div>
         <div class="filter-option" data-type="satellite">Satellites</div>
@@ -511,14 +603,14 @@
     </div>
 
     <div class="filter-group">
-      <div class="filter-title">Orbit Type:</div>
-      <div class="filter-options">
-        <div class="filter-option active" data-orbit="all">All</div>
-        <div class="filter-option" data-orbit="leo">LEO</div>
-        <div class="filter-option" data-orbit="meo">MEO</div>
-        <div class="filter-option" data-orbit="geo">GEO</div>
-        <div class="filter-option" data-orbit="heo">HEO</div>
-      </div>
+      <div class="filter-title">ORBIT TYPE:</div>
+      <select id="orbitFilter" class="dropdown">
+        <option value="all">All</option>
+        <option value="leo">LEO</option>
+        <option value="meo">MEO</option>
+        <option value="geo">GEO</option>
+        <option value="heo">HEO</option>
+      </select>
     </div>
 
     <div class="search-results" id="searchResults"></div>
@@ -535,10 +627,21 @@
 
   <div id="legend" class="panel">
     <h3>📊 Objects</h3>
-    <div class="legend-item"><div class="legend-color" style="background:#0f0;color:#0f0;"></div><span>Satellites: <b id="satCount">0</b></span></div>
-    <div class="legend-item"><div class="legend-color" style="background:#f60;color:#f60;"></div><span>Rockets: <b id="rocketCount">0</b></span></div>
-    <div class="legend-item"><div class="legend-color" style="background:#f00;color:#f00;"></div><span>Debris: <b id="debrisCount">0</b></span></div>
-    <div class="stat" style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(100,150,255,0.3);"><span class="stat-label">TOTAL:</span><span class="stat-value" id="totalCount">0</span></div>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/satellite.png" class="legend-icon" alt="Satellite">
+      <span>Satellites: <b id="satCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/rocket.png" class="legend-icon" alt="Rocket">
+      <span>Rockets: <b id="rocketCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/debris.png" class="legend-icon" alt="Debris">
+      <span>Debris: <b id="debrisCount">0</b></span>
+    </div>
+    <div class="stat" style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(100,150,255,0.3);">
+      <span class="stat-label">TOTAL:</span><span class="stat-value" id="totalCount">0</span>
+    </div>
   </div>
 
   <div id="info" class="panel">
@@ -549,10 +652,10 @@
 
   <script>
   /****************************************************************
-   * Live TRINETRA index.html
-   * - loads tles.json.gz & sat_info.json.gz (gzip)
-   * - propagates in-browser with satellite.js (live positions)
-   * - renders with NASA WorldWind (placemarks + trails + follow-view)
+   * Enhanced TRINETRA with professional UI
+   * - PNG icons in legend instead of colored dots
+   * - Dropdown for orbit type filters
+   * - Consistent panel sizing
    ****************************************************************/
 
   // --------- Config / URLs ----------
@@ -569,10 +672,21 @@
 
   // --------- Setup WorldWind ----------
   const wwd = new WorldWind.WorldWindow("globe");
+  
+  // Enhanced globe layers for better aesthetics
   wwd.addLayer(new WorldWind.BMNGOneImageLayer());
   wwd.addLayer(new WorldWind.BMNGLandsatLayer());
-  wwd.addLayer(new WorldWind.AtmosphereLayer());
-  wwd.addLayer(new WorldWind.StarFieldLayer());
+  
+  // Enhanced atmosphere with better visuals
+  const atmosphereLayer = new WorldWind.AtmosphereLayer();
+  atmosphereLayer.time = new Date(); // Set current time for realistic lighting
+  wwd.addLayer(atmosphereLayer);
+  
+  // Enhanced starfield
+  const starFieldLayer = new WorldWind.StarFieldLayer();
+  starFieldLayer.altitude = 10000000; // Higher altitude for better visibility
+  wwd.addLayer(starFieldLayer);
+  
   wwd.addLayer(new WorldWind.CompassLayer());
   
   // Store reference to ViewControlsLayer to enable/disable it
@@ -583,6 +697,42 @@
   const trailLayer = new WorldWind.RenderableLayer("Trails");
   wwd.addLayer(objectLayer);
   wwd.addLayer(trailLayer);
+
+  // Set initial view for better aesthetics
+  wwd.navigator.lookAtLocation.latitude = 20;
+  wwd.navigator.lookAtLocation.longitude = -70;
+  wwd.navigator.range = 25000000; // Better initial zoom level
+  wwd.navigator.heading = 0;
+  wwd.navigator.tilt = 45; // Slight tilt for better 3D effect
+
+  // --------- Create background stars ----------
+  function createStars() {
+    const starsContainer = document.getElementById('stars');
+    const starCount = 200;
+    
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      
+      // Random position
+      const left = Math.random() * 100;
+      const top = Math.random() * 100;
+      
+      // Random size
+      const size = Math.random() * 2 + 1;
+      
+      // Random animation delay
+      const delay = Math.random() * 5;
+      
+      star.style.left = `${left}%`;
+      star.style.top = `${top}%`;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      star.style.animationDelay = `${delay}s`;
+      
+      starsContainer.appendChild(star);
+    }
+  }
 
   // --------- Globals ----------
   let sats = [];                 // internal list of satellites (objects with TLEs + placemark)
@@ -597,7 +747,7 @@
   // UI counters
   const counts = { satellite: 0, rocket: 0, debris: 0, other: 0 };
 
-  // Orbit colors
+  // Orbit colors with enhanced aesthetics
   const ORBIT_COLORS = {
     'satellite': new WorldWind.Color(0, 1, 1, 0.9),
     'payload': new WorldWind.Color(0, 1, 1, 0.9),
@@ -800,6 +950,9 @@
   // ---------- Main loading + initialization ----------
   (async function main(){
     try{
+      // Create background stars
+      createStars();
+      
       // Load gzip compressed TLE + info files
       document.getElementById('loadingMsg').textContent = 'Fetching satellite data...';
       const [tlesArr, infoObj] = await Promise.all([
@@ -1021,6 +1174,12 @@
     searchSatellites(q);
   });
 
+  // NEW: Orbit filter dropdown handler
+  document.getElementById('orbitFilter').addEventListener('change', function(e){
+    activeFilters.orbit = e.target.value;
+    filterSatellites();
+  });
+
   function searchSatellites(q){
     const c = document.getElementById('searchResults');
     c.innerHTML = '';
@@ -1041,14 +1200,6 @@
       document.querySelectorAll('.filter-option[data-type]').forEach(o=>o.classList.remove('active'));
       e.target.classList.add('active');
       activeFilters.type = e.target.dataset.type;
-      filterSatellites();
-    });
-  });
-  document.querySelectorAll('.filter-option[data-orbit]').forEach(opt=>{
-    opt.addEventListener('click', e=>{
-      document.querySelectorAll('.filter-option[data-orbit]').forEach(o=>o.classList.remove('active'));
-      e.target.classList.add('active');
-      activeFilters.orbit = e.target.dataset.orbit;
       filterSatellites();
     });
   });
