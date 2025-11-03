@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>TRINETRA — Live Orbital Visualization</title>
+
+  <!-- Import Iceland font from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Iceland&display=swap" rel="stylesheet">
+
+  <!-- NASA WorldWind -->
+  <script src="https://files.worldwind.arc.nasa.gov/artifactory/web/0.11.0/worldwind.min.js"></script>
+
+  <!-- satellite.js for TLE propagation -->
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
+
+  <!-- Pako for gzip decompression -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <style>
+    /* Import Iceland font from Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
+
+    /* Apply Iceland font globally */
+    * {
+      font-family: 'Iceland', sans-serif;
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
+    
+    /* Ensure all MUI components use Iceland font */
+    body {
+      font-family: 'Iceland', sans-serif;
+      background: linear-gradient(135deg, #0a0a2a 0%, #1a1a4a 100%);
+      overflow: hidden; 
+      height: 100vh;
+    }
+    
+    /* Additional fallback for any missed elements */
+    h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label, select {
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    #globe { 
+      width: 100%; 
+      height: 100%; 
+      position: absolute; 
+      background: radial-gradient(circle at center, #0a0a2a 0%, #050515 100%);
+    }
+    
+    /* Glass-morphism panels matching Home.js - Consistent sizing */
+    .panel { 
+      position: absolute;
+      background: rgba(26, 26, 74, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: #fff;
+      padding: 20px 24px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+      transition: all 0.3s ease;
+      width: 320px; /* Consistent width for all panels */
+    }
+    
+    .panel:hover {
+      border-color: rgba(120, 219, 255, 0.5);
+      box-shadow: 0 12px 40px rgba(120, 219, 255, 0.2);
+    }
+    
+    #controls { 
+      top: 20px; 
+      right: 20px; 
+    }
+    
+    #legend { 
+      bottom: 20px; 
+      left: 20px; 
+    }
+    
+    /* FIXED: Info panel positioning - now positioned below controls */
+    #info { 
+      top: 120px;  /* Positioned below controls */
+      right: 20px; 
+      max-height: calc(100vh - 160px); /* Prevent overflow */
+      overflow-y: auto;
+      display: none;
+      z-index: 20; /* Higher z-index to appear above other panels */
+    }
+    
+    /* Custom scrollbar for info panel */
+    #info::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #info::-webkit-scrollbar-track {
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 3px;
+    }
+    
+    #info::-webkit-scrollbar-thumb {
+      background: rgba(120, 219, 255, 0.5);
+      border-radius: 3px;
+    }
+    
+    #info::-webkit-scrollbar-thumb:hover {
+      background: rgba(120, 219, 255, 0.7);
+    }
+    
+    /* Loading screen */
+    #loading { 
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(26, 26, 74, 0.95);
+      backdrop-filter: blur(30px);
+      padding: 40px 60px;
+      border-radius: 20px;
+      border: 2px solid rgba(120, 219, 255, 0.5);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+      z-index: 100;
+      text-align: center;
+    }
+    
+    .spinner { 
+      border: 4px solid rgba(120, 219, 255, 0.2);
+      border-top: 4px solid #78dbff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 20px rgba(120, 219, 255, 0.5);
+    }
+    
+    @keyframes spin { 
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); } 
+    }
+    
+    /* Enhanced loading text with glow effect */
+    .loading-text {
+      color: #78dbff;
+      text-align: center;
+      font-size: 16px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px rgba(120, 219, 255, 0.7);
+      letter-spacing: 1px;
+    }
+    
+    /* Headers */
+    h3 { 
+      margin: 0 0 18px;
+      font-size: 20px; /* Slightly larger for Iceland font */
+      font-weight: 400; /* Iceland is a regular weight font */
+      color: #78dbff;
+      border-bottom: 2px solid rgba(120, 219, 255, 0.3);
+      padding-bottom: 12px;
+      letter-spacing: 1px; /* Add letter spacing for better readability */
+      text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
+    }
+    
+    /* Stats */
+    .stat { 
+      display: flex;
+      justify-content: space-between;
+      margin: 12px 0;
+      font-size: 16px; /* Slightly larger for Iceland font */
+      align-items: center;
+    }
+    
+    .stat-label { 
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 400; /* Regular weight for Iceland */
+    }
+    
+    .stat-value { 
+      color: #78dbff;
+      font-weight: 400; /* Regular weight for Iceland */
+      font-family: 'Iceland', monospace;
+      font-size: 18px; /* Slightly larger */
+      text-shadow: 0 0 10px rgba(120, 219, 255, 0.5);
+      letter-spacing: 0.5px;
+    }
+    
+    /* Legend items - using PNG icons instead of colored dots */
+    .legend-item { 
+      display: flex;
+      align-items: center;
+      margin: 14px 0;
+      font-size: 16px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+    }
+    
+    .legend-icon { 
+      width: 24px;
+      height: 24px;
+      margin-right: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    .legend-icon:hover {
+      transform: scale(1.2);
+    }
+    
+    /* Range slider - modern style */
+    input[type="range"] { 
+      width: 100%;
+      height: 6px;
+      margin: 12px 0;
+      background: rgba(120, 219, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #78dbff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+      transition: all 0.2s;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 20px rgba(120, 219, 255, 1);
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #78dbff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+      transition: all 0.2s;
+    }
+    
+    label { 
+      display: block;
+      margin: 14px 0 8px;
+      font-size: 16px; /* Slightly larger */
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 400; /* Regular weight */
+    }
+    
+    /* Close button */
+    .close { 
+      float: right;
+      cursor: pointer;
+      font-size: 28px;
+      color: #ff77c6;
+      line-height: 1;
+      margin-top: -10px;
+      transition: all 0.2s;
+      font-weight: 400; /* Regular weight */
+    }
+    
+    .close:hover { 
+      color: #ffa6dd;
+      transform: rotate(90deg);
+    }
+    
+    /* Info title */
+    .info-title { 
+      font-size: 22px; /* Slightly larger */
+      color: #78dbff;
+      margin-bottom: 18px;
+      font-weight: 400; /* Regular weight */
+      text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
+      letter-spacing: 1px;
+    }
+    
+    /* Buttons - matching Home.js style */
+    button { 
+      background: rgba(120, 219, 255, 0.2);
+      border: 1px solid #78dbff;
+      color: #78dbff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+      margin-top: 12px;
+      transition: all 0.3s ease;
+      width: 100%;
+      text-transform: none;
+      letter-spacing: 1px; /* Add letter spacing */
+      position: relative;
+      overflow: hidden;
+    }
+    
+    button:hover { 
+      background: rgba(120, 219, 255, 0.3);
+      box-shadow: 0 0 20px rgba(120, 219, 255, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    button:hover::after {
+      left: 100%;
+    }
+    
+    /* Search panel */
+    #searchPanel { 
+      top: 20px;
+      left: 20px;
+    }
+    
+    /* Search box - modern glass style */
+    .search-box { 
+      width: 100%;
+      padding: 12px 18px;
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 16px; /* Slightly larger */
+      margin-bottom: 18px;
+      transition: all 0.3s ease;
+      outline: none;
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    .search-box:focus { 
+      border-color: #78dbff;
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+      background: rgba(10, 10, 42, 0.7);
+    }
+    
+    .search-box::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    /* Filter groups */
+    .filter-group { 
+      margin: 18px 0;
+    }
+    
+    .filter-title { 
+      font-size: 15px; /* Slightly larger */
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 10px;
+      font-weight: 400; /* Regular weight */
+      text-transform: uppercase;
+      letter-spacing: 1px; /* Add letter spacing */
+    }
+    
+    .filter-options { 
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    /* Filter buttons - pill style */
+    .filter-option { 
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 15px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .filter-option:hover { 
+      background: rgba(20, 20, 52, 0.7);
+      border-color: rgba(120, 219, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    .filter-option.active { 
+      background: linear-gradient(135deg, #78dbff 0%, #a6e8ff 100%);
+      color: #0a0a2a;
+      border-color: #78dbff;
+      font-weight: 400; /* Regular weight */
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.5);
+    }
+    
+    .filter-option.active:hover { 
+      background: linear-gradient(135deg, #a6e8ff 0%, #c4f0ff 100%);
+      box-shadow: 0 0 24px rgba(120, 219, 255, 0.7);
+    }
+    
+    /* Professional dropdown for orbit types */
+    .dropdown {
+      width: 100%;
+      padding: 12px 18px;
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 18px;
+      transition: all 0.3s ease;
+      outline: none;
+      font-family: 'Iceland', sans-serif;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2378dbff' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 18px center;
+      background-size: 12px;
+    }
+    
+    .dropdown:focus {
+      border-color: #78dbff;
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+      background-color: rgba(10, 10, 42, 0.7);
+    }
+    
+    .dropdown option {
+      background: #1a1a4a;
+      color: white;
+    }
+    
+    /* Search results */
+    .search-results { 
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 12px;
+      border-top: 1px solid rgba(120, 219, 255, 0.2);
+      padding-top: 12px;
+    }
+    
+    .search-results::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .search-results::-webkit-scrollbar-track {
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 3px;
+    }
+    
+    .search-results::-webkit-scrollbar-thumb {
+      background: rgba(120, 219, 255, 0.5);
+      border-radius: 3px;
+    }
+    
+    /* Search result items */
+    .search-result { 
+      padding: 10px 14px;
+      margin: 6px 0;
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px; /* Slightly larger */
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    .search-result:hover { 
+      background: rgba(20, 20, 52, 0.6);
+      border-color: rgba(120, 219, 255, 0.3);
+      transform: translateX(4px);
+    }
+    
+    .search-result.selected { 
+      background: rgba(120, 219, 255, 0.2);
+      border-left: 3px solid #78dbff;
+      padding-left: 12px;
+    }
+    
+    /* Loading message styling */
+    #loadingMsg {
+      color: rgba(120, 219, 255, 0.8);
+      text-align: center;
+      margin-top: 12px;
+      font-size: 15px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+    }
+    
+    /* Background stars effect */
+    .stars {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+    
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle 5s infinite ease-in-out;
+    }
+    
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .panel {
+        padding: 16px 20px;
+        border-radius: 12px;
+        width: calc(100% - 40px);
+        max-width: 320px;
+      }
+      
+      #searchPanel {
+        top: 10px;
+        left: 10px;
+      }
+      
+      #controls {
+        top: 10px;
+        right: 10px;
+      }
+      
+      #info {
+        top: 100px; /* Adjusted for mobile */
+        right: 10px;
+      }
+      
+      #legend {
+        bottom: 10px;
+        left: 10px;
+      }
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .panel {
+      animation: fadeIn 0.5s ease-out;
+    }
+    
+    /* Enhanced glow effects */
+    .glow {
+      text-shadow: 0 0 10px currentColor;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background stars -->
+  <div class="stars" id="stars"></div>
+
+  <canvas id="globe"></canvas>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">TRINETRA</div>
+    <div class="loading-text">Loading live satellite data & initializing globe...</div>
+    <div id="loadingMsg" style="color:#9cf; text-align:center; margin-top:8px; font-size:14px;"></div>
+  </div>
+
+  <!-- Search / Filter / Controls / Legend / Info -->
+  <div id="searchPanel" class="panel">
+    <h3>🔍 Search & Filter</h3>
+    <input type="text" id="searchInput" class="search-box" placeholder="Search satellites...">
+
+    <div class="filter-group">
+      <div class="filter-title">OBJECT TYPE:</div>
+      <div class="filter-options">
+        <div class="filter-option active" data-type="all">All</div>
+        <div class="filter-option" data-type="satellite">Satellites</div>
+        <div class="filter-option" data-type="rocket">Rockets</div>
+        <div class="filter-option" data-type="debris">Debris</div>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-title">ORBIT TYPE:</div>
+      <select id="orbitFilter" class="dropdown">
+        <option value="all">All</option>
+        <option value="leo">LEO</option>
+        <option value="meo">MEO</option>
+        <option value="geo">GEO</option>
+        <option value="heo">HEO</option>
+      </select>
+    </div>
+
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div id="controls" class="panel">
+    <h3>🛰️ TRINETRA</h3>
+    <label>Orbit Speed: <span id="speedVal">1.0</span>x</label>
+    <input type="range" id="speed" min="0.1" max="5" step="0.1" value="1">
+    <div class="stat"><span class="stat-label">FPS:</span><span class="stat-value" id="fps">--</span></div>
+    <div class="stat"><span class="stat-label">Visible:</span><span class="stat-value" id="visibleCount">0</span></div>
+    <div class="stat"><span class="stat-label">Camera View:</span><span class="stat-value" id="cameraMode">Free</span></div>
+  </div>
+
+  <div id="legend" class="panel">
+    <h3>📊 Objects</h3>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/satellite.png" class="legend-icon" alt="Satellite">
+      <span>Satellites: <b id="satCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/rocket.png" class="legend-icon" alt="Rocket">
+      <span>Rockets: <b id="rocketCount">0</b></span>
+    </div>
+    <div class="legend-item">
+      <img src="https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons/debris.png" class="legend-icon" alt="Debris">
+      <span>Debris: <b id="debrisCount">0</b></span>
+    </div>
+    <div class="stat" style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(100,150,255,0.3);">
+      <span class="stat-label">TOTAL:</span><span class="stat-value" id="totalCount">0</span>
+    </div>
+  </div>
+
+  <div id="info" class="panel">
+    <span class="close" onclick="closeInfo()">×</span>
+    <div id="infoContent"></div>
+    <button id="followButton" onclick="toggleFollowCamera()">Follow Satellite</button>
+  </div>
+
+  <script>
+  /****************************************************************
+   * Enhanced TRINETRA with professional UI
+   * - PNG icons in legend instead of colored dots
+   * - Dropdown for orbit type filters
+   * - Consistent panel sizing
+   ****************************************************************/
+
+  // --------- Config / URLs ----------
+  const GITHUB_BASE_RAW = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/data/latest';
+  const TLES_URL = `${GITHUB_BASE_RAW}/tles.json.gz`;
+  const SATINFO_URL = `${GITHUB_BASE_RAW}/sat_info.json.gz`;
+
+  // animation/update intervals (ms)
+  const PROPAGATION_UPDATE_MS = 5000; // recompute accurate position every 5 seconds
+  const TRAIL_POINTS = 48;            // points when drawing orbit trails
+  const TRAIL_DURATION_MINUTES = 90;  // generate trail for next N minutes (approx)
+  const BATCH_SIZE = 500;             // progressive loading: satellites per batch
+  const BATCH_DELAY_MS = 50;          // delay between batches for smooth rendering
+
+  // --------- Setup WorldWind ----------
+  const wwd = new WorldWind.WorldWindow("globe");
+  
+  // Enhanced globe layers for better aesthetics
+  wwd.addLayer(new WorldWind.BMNGOneImageLayer());
+  wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+  
+  // Enhanced atmosphere with better visuals
+  const atmosphereLayer = new WorldWind.AtmosphereLayer();
+  atmosphereLayer.time = new Date(); // Set current time for realistic lighting
+  wwd.addLayer(atmosphereLayer);
+  
+  // Enhanced starfield
+  const starFieldLayer = new WorldWind.StarFieldLayer();
+  starFieldLayer.altitude = 10000000; // Higher altitude for better visibility
+  wwd.addLayer(starFieldLayer);
+  
+  wwd.addLayer(new WorldWind.CompassLayer());
+  
+  // Store reference to ViewControlsLayer to enable/disable it
+  let viewControlsLayer = new WorldWind.ViewControlsLayer(wwd);
+  wwd.addLayer(viewControlsLayer);
+
+  const objectLayer = new WorldWind.RenderableLayer("Objects");
+  const trailLayer = new WorldWind.RenderableLayer("Trails");
+  wwd.addLayer(objectLayer);
+  wwd.addLayer(trailLayer);
+
+  // Set initial view for better aesthetics
+  wwd.navigator.lookAtLocation.latitude = 20;
+  wwd.navigator.lookAtLocation.longitude = -70;
+  wwd.navigator.range = 25000000; // Better initial zoom level
+  wwd.navigator.heading = 0;
+  wwd.navigator.tilt = 45; // Slight tilt for better 3D effect
+
+  // --------- Create background stars ----------
+  function createStars() {
+    const starsContainer = document.getElementById('stars');
+    const starCount = 200;
+    
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      
+      // Random position
+      const left = Math.random() * 100;
+      const top = Math.random() * 100;
+      
+      // Random size
+      const size = Math.random() * 2 + 1;
+      
+      // Random animation delay
+      const delay = Math.random() * 5;
+      
+      star.style.left = `${left}%`;
+      star.style.top = `${top}%`;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      star.style.animationDelay = `${delay}s`;
+      
+      starsContainer.appendChild(star);
+    }
+  }
+
+  // --------- Globals ----------
+  let sats = [];                 // internal list of satellites (objects with TLEs + placemark)
+  let satInfoMap = {};           // metadata map by NORAD ID
+  let selected = null;           // selected sat object
+  let trailRenderable = null;    // current trail renderable
+  let visibleSats = new Set();
+  let activeFilters = { type: 'all', orbit: 'all' };
+  let isFollowing = false;
+  let followSatelliteId = null;
+
+  // UI counters
+  const counts = { satellite: 0, rocket: 0, debris: 0, other: 0 };
+
+  // Orbit colors with enhanced aesthetics
+  const ORBIT_COLORS = {
+    'satellite': new WorldWind.Color(0, 1, 1, 0.9),
+    'payload': new WorldWind.Color(0, 1, 1, 0.9),
+    'rocket': new WorldWind.Color(1, 0.5, 0, 0.9),
+    'rocket body': new WorldWind.Color(1, 0.5, 0, 0.9),
+    'debris': new WorldWind.Color(1, 0, 0, 0.9),
+    'unknown': new WorldWind.Color(0.8, 0.8, 0.8, 0.9)
+  };
+
+  // Icon URLs from your GitHub repo
+  const GITHUB_ICONS_BASE = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons';
+  const ICON_URLS = {
+    'satellite': `${GITHUB_ICONS_BASE}/satellite.png`,
+    'payload': `${GITHUB_ICONS_BASE}/satellite.png`,
+    'rocket': `${GITHUB_ICONS_BASE}/rocket.png`,
+    'rocket body': `${GITHUB_ICONS_BASE}/rocket.png`,
+    'debris': `${GITHUB_ICONS_BASE}/debris.png`,
+    'unknown': `${GITHUB_ICONS_BASE}/satellite.png`
+  };
+
+  // Get icon URL for a satellite type
+  function getIconUrl(type) {
+    const lowerType = (type || 'unknown').toLowerCase();
+    
+    if (lowerType.includes('satellite') || lowerType.includes('payload')) {
+      return ICON_URLS.satellite;
+    } else if (lowerType.includes('rocket')) {
+      return ICON_URLS.rocket;
+    } else if (lowerType.includes('debris')) {
+      return ICON_URLS.debris;
+    }
+    
+    return ICON_URLS.unknown;
+  }
+
+  // --------- Gzip Decompression using Pako ----------
+  async function decompressGzip(compressedData) {
+    if (typeof pako === 'undefined') {
+      throw new Error('Pako library not loaded. Please refresh the page.');
+    }
+    
+    try {
+      const inputArray = new Uint8Array(compressedData);
+      const decompressed = pako.inflate(inputArray);
+      return decompressed;
+    } catch(err) {
+      console.error('Gzip decompression error:', err);
+      throw new Error('Failed to decompress gzip data: ' + err.message);
+    }
+  }
+
+  // --------- Fetch and decompress gzip files ----------
+  async function fetchData(url, progressText) {
+    document.getElementById('loadingMsg').textContent = progressText || `Fetching ${url}`;
+    
+    try {
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(`Failed to fetch ${url} (${res.status})`);
+      
+      const buf = await res.arrayBuffer();
+      document.getElementById('loadingMsg').textContent = 'Decompressing data...';
+      
+      const decompressed = await decompressGzip(buf);
+      const text = new TextDecoder('utf-8').decode(decompressed);
+      return JSON.parse(text);
+    } catch(err) {
+      console.error(`Error loading ${url}:`, err);
+      throw err;
+    }
+  }
+
+  // --------- Satellite propagation helpers ----------
+  function propPositionFromTLE(tle1, tle2, date){
+    const satrec = satellite.twoline2satrec(tle1, tle2);
+    // propagate returns {position, velocity} in ECI (km)
+    const p = satellite.propagate(satrec, date);
+    if(!p || !p.position) return null;
+    const gmst = satellite.gstime(date);
+    const geo = satellite.eciToGeodetic(p.position, gmst);
+    const lat = satellite.degreesLat(geo.latitude);
+    const lon = satellite.degreesLong(geo.longitude);
+    const altKm = geo.height; // km
+    return { lat, lon, alt: altKm * 1000, rawPosECI: p.position };
+  }
+
+  // Interpolate between two positions for smooth animation
+  function interpolatePosition(pos1, pos2, t) {
+    if (!pos1 || !pos2) return pos1 || pos2;
+    
+    // Smooth interpolation factor (ease in-out)
+    const smoothT = t * t * (3 - 2 * t);
+    
+    return {
+      lat: pos1.lat + (pos2.lat - pos1.lat) * smoothT,
+      lon: pos1.lon + (pos2.lon - pos1.lon) * smoothT,
+      alt: pos1.alt + (pos2.alt - pos1.alt) * smoothT
+    };
+  }
+
+  // generate an approximate orbit trail (future positions) — used on-demand
+  function generateOrbitTrailPoints(tle1, tle2, minutes=TRAIL_DURATION_MINUTES, points=TRAIL_POINTS){
+    const satrec = satellite.twoline2satrec(tle1, tle2);
+    const now = new Date();
+    const pts = [];
+    for(let i=0;i<points;i++){
+      const dt = new Date(now.getTime() + (i * (minutes*60000) / points));
+      const p = satellite.propagate(satrec, dt);
+      if(!p || !p.position) continue;
+      const gmst = satellite.gstime(dt);
+      const geo = satellite.eciToGeodetic(p.position, gmst);
+      const lat = satellite.degreesLat(geo.latitude);
+      const lon = satellite.degreesLong(geo.longitude);
+      const altKm = geo.height;
+      pts.push(new WorldWind.Position(lat, lon, altKm*1000));
+    }
+    return pts;
+  }
+
+  // add placemark for a satellite (and keep reference in sats array)
+  function makePlacemarkForSat(s){
+    const attrs = new WorldWind.PlacemarkAttributes(null);
+    
+    // Use real PNG icons from GitHub repo
+    attrs.imageSource = getIconUrl(s.type);
+    attrs.imageScale = 0.05; // Slightly larger for better visibility
+    attrs.imageOffset = new WorldWind.Offset(WorldWind.OFFSET_FRACTION, 0.5, WorldWind.OFFSET_FRACTION, 0.5);
+
+    // initial placeholder position at (0,0,0) before propagation
+    const pm = new WorldWind.Placemark(new WorldWind.Position(0,0,0), false, attrs);
+    pm.userObject = s;
+    pm.pickDelegate = s; // helps picking
+    objectLayer.addRenderable(pm);
+
+    return pm;
+  }
+
+  // show info panel for a satellite object
+  function showSatelliteInfo(s){
+    const meta = satInfoMap[String(s.id)] || {};
+    const altitude = (s.position && s.position.alt) ? Math.round(s.position.alt/1000) : 'N/A';
+    const orbitType = getOrbitType(altitude === 'N/A' ? 0 : altitude);
+    const period = meta.period ? `${meta.period.toFixed(1)} min` : (s.orbit_period_minutes ? `${s.orbit_period_minutes} min` : 'N/A');
+
+    document.getElementById('infoContent').innerHTML = `
+      <div class="info-title">${meta.name || s.name || 'Unknown'}</div>
+      <div class="stat"><span class="stat-label">Type:</span><span class="stat-value">${meta.object_type || s.type || 'N/A'}</span></div>
+      <div class="stat"><span class="stat-label">ID:</span><span class="stat-value">${s.id || 'N/A'}</span></div>
+      <div class="stat"><span class="stat-label">Altitude:</span><span class="stat-value">${altitude} km</span></div>
+      <div class="stat"><span class="stat-label">Orbit:</span><span class="stat-value">${orbitType.toUpperCase()}</span></div>
+      <div class="stat"><span class="stat-label">Period:</span><span class="stat-value">${period}</span></div>
+      <div style="margin-top:10px; font-size:15px; color:#bde;">Launch: ${meta.launch_date || 'N/A'} | Country: ${meta.country || 'N/A'}</div>
+    `;
+    
+    // Position info panel below controls
+    const controlsPanel = document.getElementById('controls');
+    const controlsRect = controlsPanel.getBoundingClientRect();
+    const infoPanel = document.getElementById('info');
+    infoPanel.style.top = (controlsRect.bottom + 20) + 'px';
+    infoPanel.style.display = 'block';
+    
+    document.getElementById('followButton').textContent = isFollowing && followSatelliteId===s.id ? 'Stop Following' : 'Follow Satellite';
+  }
+
+  function closeInfo(){
+    document.getElementById('info').style.display = 'none';
+    selected = null;
+    
+    // Always re-enable view controls when closing info
+    viewControlsLayer.enabled = true;
+    isFollowing = false;
+    followSatelliteId = null;
+    document.getElementById('cameraMode').textContent = 'Free';
+    if(trailRenderable){
+      trailLayer.removeRenderable(trailRenderable);
+      trailRenderable = null;
+    }
+  }
+
+  function toggleFollowCamera(){
+    if(!selected) return;
+    isFollowing = !isFollowing;
+    
+    // Toggle view controls based on follow mode
+    viewControlsLayer.enabled = !isFollowing;
+    
+    if(isFollowing){ 
+      followSatelliteId = selected.id; 
+      document.getElementById('cameraMode').textContent = 'Following'; 
+    }
+    else { 
+      followSatelliteId = null; 
+      document.getElementById('cameraMode').textContent = 'Free'; 
+    }
+    
+    document.getElementById('followButton').textContent = isFollowing ? 'Stop Following' : 'Follow Satellite';
+  }
+
+  function getOrbitType(alt){ if(alt < 2000) return 'leo'; if(alt < 35786) return 'meo'; if(alt >= 35786 && alt < 36000) return 'geo'; return 'heo'; }
+
+  // ---------- Main loading + initialization ----------
+  (async function main(){
+    try{
+      // Create background stars
+      createStars();
+      
+      // Load gzip compressed TLE + info files
+      document.getElementById('loadingMsg').textContent = 'Fetching satellite data...';
+      const [tlesArr, infoObj] = await Promise.all([
+        fetchData(TLES_URL, 'Downloading TLE data (gzip)...'),
+        fetchData(SATINFO_URL, 'Downloading satellite info (gzip)...')
+      ]);
+
+      // store metadata map
+      satInfoMap = infoObj || {};
+
+      // convert incoming tlesArr into internal sats list
+      // expected tlesArr: [{ id: <number>, name: <string>, tle1: <str>, tle2: <str> }, ...]
+      document.getElementById('loadingMsg').textContent = `Preparing ${tlesArr.length} TLEs...`;
+      counts.satellite = counts.rocket = counts.debris = counts.other = 0;
+
+      // create placemarks
+      sats = tlesArr.map((entry, idx) => {
+        const id = entry.id || (`_${idx}`);
+        const name = entry.name || `object_${id}`;
+        // pick a crude type using metadata map if available
+        const meta = satInfoMap[String(id)] || {};
+        const type = (meta.object_type || '').toString() || (entry.type || 'UNKNOWN');
+
+        // create sat object
+        const satObj = {
+          id: id,
+          name: name,
+          tle1: String(entry.tle1 || entry.TLE_LINE1 || ''),
+          tle2: String(entry.tle2 || entry.TLE_LINE2 || ''),
+          type: String(type),
+          orbit_period_minutes: meta.period || null,
+          position: null, // {lat,lon,alt}
+          nextPosition: null, // for smooth interpolation
+          placemark: null,
+          lastPropagated: null,
+          satrec: null, // store satellite record for faster propagation
+          idx: Math.random() * 1000
+        };
+
+        // update counts
+        const t = (satObj.type||'').toLowerCase();
+        if(t.includes('satellite') || t.includes('payload')) counts.satellite++;
+        else if(t.includes('rocket')) counts.rocket++;
+        else if(t.includes('debris')) counts.debris++;
+        else counts.other++;
+
+        // create placemark & attach
+        satObj.placemark = makePlacemarkForSat(satObj);
+        return satObj;
+      });
+
+      // update UI counters
+      document.getElementById('satCount').textContent = counts.satellite;
+      document.getElementById('rocketCount').textContent = counts.rocket;
+      document.getElementById('debrisCount').textContent = counts.debris;
+      document.getElementById('totalCount').textContent = sats.length;
+
+      // Progressive loading: load and render in batches
+      document.getElementById('loadingMsg').textContent = 'Loading satellites progressively...';
+      await loadSatellitesInBatches();
+
+      // hide loading
+      document.getElementById('loading').style.display = 'none';
+
+      // start animation loops
+      startAnimationLoops();
+    } catch(err){
+      console.error(err);
+      document.getElementById('loading').innerHTML = `
+        <div style="color:#f44; text-align:center;">
+          <h3>Error loading data</h3>
+          <p style="margin:10px 0; font-size:15px;">${err.message}</p>
+          <button onclick="location.reload()" style="margin-top:15px;">Retry</button>
+        </div>
+      `;
+    }
+  })();
+
+  // ---------- Propagation + Animation ----------
+  let lastFPS = Date.now(), frames = 0;
+  let lastPropagateTime = 0;
+  let animationStartTime = Date.now();
+
+  // Progressive loading: process satellites in batches
+  async function loadSatellitesInBatches() {
+    const totalBatches = Math.ceil(sats.length / BATCH_SIZE);
+    
+    for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+      const start = batchIdx * BATCH_SIZE;
+      const end = Math.min(start + BATCH_SIZE, sats.length);
+      const batch = sats.slice(start, end);
+      
+      // Update loading message
+      const progress = Math.round((end / sats.length) * 100);
+      document.getElementById('loadingMsg').textContent = 
+        `Loading satellites: ${end}/${sats.length} (${progress}%)`;
+      
+      // Propagate positions for this batch (current and next position for interpolation)
+      const now = new Date();
+      const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
+      
+      for (const s of batch) {
+        // Store satrec for faster updates
+        if (!s.satrec) {
+          s.satrec = satellite.twoline2satrec(s.tle1, s.tle2);
+        }
+        
+        const pos = propPositionFromTLE(s.tle1, s.tle2, now);
+        const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
+        
+        if (pos) {
+          s.position = pos;
+          s.nextPosition = nextPos;
+          s.lastPropagated = now;
+          s.placemark.position = new WorldWind.Position(pos.lat, pos.lon, pos.alt);
+          visibleSats.add(s.id);
+        }
+      }
+      
+      // Update visible count
+      document.getElementById('visibleCount').textContent = visibleSats.size;
+      
+      // Redraw to show progress
+      wwd.redraw();
+      
+      // Small delay between batches to keep UI responsive
+      if (batchIdx < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
+    
+    // Store initial propagation time
+    lastPropagateTime = Date.now();
+    animationStartTime = lastPropagateTime;
+  }
+
+  async function propagateAllOnce(){
+    const now = new Date();
+    const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
+    
+    for(const s of sats){
+      const pos = propPositionFromTLE(s.tle1, s.tle2, now);
+      const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
+      
+      if(pos){
+        s.position = pos;
+        s.nextPosition = nextPos;
+        s.lastPropagated = now;
+      }
+    }
+    
+    lastPropagateTime = Date.now();
+    animationStartTime = lastPropagateTime;
+  }
+
+  function startAnimationLoops(){
+    // propagation update timer - calculate new accurate positions every 5 seconds
+    setInterval(async ()=>{
+      try {
+        await propagateAllOnce();
+      } catch(e){ console.warn('Propagation update error', e); }
+    }, PROPAGATION_UPDATE_MS);
+
+    // render animation loop with smooth interpolation at 60fps
+    function frame(){
+      requestAnimationFrame(frame);
+      
+      const now = Date.now();
+      
+      // FPS counter
+      frames++;
+      if(now - lastFPS > 1000){
+        document.getElementById('fps').textContent = Math.round(frames * 1000 / (now - lastFPS));
+        frames = 0; 
+        lastFPS = now;
+      }
+
+      // Calculate interpolation factor (0 to 1) between propagation updates
+      const timeSinceLastProp = now - lastPropagateTime;
+      const interpolationFactor = Math.min(timeSinceLastProp / PROPAGATION_UPDATE_MS, 1);
+
+      // Update all satellite positions with smooth interpolation
+      for (const s of sats) {
+        if (s.position && s.nextPosition && s.placemark.enabled) {
+          const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
+          s.placemark.position = new WorldWind.Position(smoothPos.lat, smoothPos.lon, smoothPos.alt);
+        }
+      }
+
+      // update placemark sizes/visibility based on filters
+      filterSatellites();
+
+      // follow camera if active
+      if(isFollowing && followSatelliteId !== null){
+        const s = sats.find(x=>String(x.id)===String(followSatelliteId));
+        if(s && s.position && s.nextPosition){
+          const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
+          wwd.navigator.lookAtLocation.latitude = smoothPos.lat;
+          wwd.navigator.lookAtLocation.longitude = smoothPos.lon;
+          // Only update range if user hasn't manually zoomed
+          const currentRange = wwd.navigator.range;
+          const desiredRange = Math.max(100000, (smoothPos.alt + 200000));
+          
+          // Only update range if it hasn't been manually changed significantly
+          if (Math.abs(currentRange - desiredRange) < 50000) {
+            wwd.navigator.range = desiredRange;
+          }
+        }
+      }
+
+      wwd.redraw();
+    }
+    frame();
+  }
+
+  // ---------- UI: search / filter / click handling ----------
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    const q = e.target.value.trim();
+    searchSatellites(q);
+  });
+
+  // NEW: Orbit filter dropdown handler
+  document.getElementById('orbitFilter').addEventListener('change', function(e){
+    activeFilters.orbit = e.target.value;
+    filterSatellites();
+  });
+
+  function searchSatellites(q){
+    const c = document.getElementById('searchResults');
+    c.innerHTML = '';
+    if(!q) return;
+    const hits = sats.filter(s => (s.name || '').toLowerCase().includes(q.toLowerCase()) || String(s.id).includes(q));
+    if(hits.length===0){ c.innerHTML = '<div style="color:#aaa;text-align:center;padding:10px;">No results</div>'; return; }
+    hits.slice(0,10).forEach(s => {
+      const d = document.createElement('div'); d.className='search-result';
+      d.textContent = `${s.name} (${s.type||'N/A'})`;
+      d.onclick = ()=>{ selectSatellite(s); c.innerHTML=''; document.getElementById('searchInput').value=''; };
+      c.appendChild(d);
+    });
+  }
+
+  // filter option handlers
+  document.querySelectorAll('.filter-option[data-type]').forEach(opt=>{
+    opt.addEventListener('click', e=>{
+      document.querySelectorAll('.filter-option[data-type]').forEach(o=>o.classList.remove('active'));
+      e.target.classList.add('active');
+      activeFilters.type = e.target.dataset.type;
+      filterSatellites();
+    });
+  });
+
+  function filterSatellites(){
+    visibleSats.clear();
+    sats.forEach(s=>{
+      const t = (s.type||'').toLowerCase();
+      const alt = s.position ? s.position.alt/1000 : 0;
+      const orbitType = getOrbitType(alt);
+      const typeMatch = (activeFilters.type==='all') ||
+        (activeFilters.type==='satellite' && (t.includes('satellite')||t.includes('payload'))) ||
+        (activeFilters.type==='rocket' && t.includes('rocket')) ||
+        (activeFilters.type==='debris' && t.includes('debris'));
+      const orbitMatch = (activeFilters.orbit==='all') || (activeFilters.orbit===orbitType);
+      if(typeMatch && orbitMatch){ s.placemark.enabled = true; visibleSats.add(s.id); } else { s.placemark.enabled=false; }
+    });
+    document.getElementById('visibleCount').textContent = visibleSats.size;
+    wwd.redraw();
+  }
+
+  // clicking on globe to pick placemark
+  wwd.addEventListener('click', (evt) => {
+    const pickList = wwd.pick(wwd.canvasCoordinates(evt.clientX, evt.clientY));
+    if(trailRenderable){ trailLayer.removeRenderable(trailRenderable); trailRenderable = null; }
+    if(pickList.objects.length > 0){
+      const picked = pickList.objects[0].userObject;
+      // picked may be the sat userObject we stored
+      const sat = sats.find(s => s.placemark === picked || s.name === (picked && picked.name));
+      if(sat){ selectSatellite(sat); }
+    } else {
+      closeInfo();
+    }
+  });
+
+  function selectSatellite(sat){
+    closeInfo();
+    selected = sat;
+    // draw full trail (generateTrailPoints)
+    const points = generateOrbitTrailPoints(sat.tle1, sat.tle2, TRAIL_DURATION_MINUTES, TRAIL_POINTS);
+    if(points.length > 0){
+      const path = new WorldWind.Path(points);
+      path.altitudeMode = WorldWind.RELATIVE_TO_GROUND;
+      path.attributes = new WorldWind.ShapeAttributes(null);
+      const color = (ORBIT_COLORS[(sat.type||'unknown').toLowerCase()] || ORBIT_COLORS.unknown);
+      path.attributes.outlineColor = color;
+      path.attributes.outlineWidth = 3;
+      trailRenderable = path;
+      trailLayer.addRenderable(path);
+    }
+    // ensure info & follow button
+    if(sat.position){ showSatelliteInfo({ ...sat }); }
+    // center camera a bit above current pos
+    if(sat.position){
+      wwd.navigator.lookAtLocation.latitude = sat.position.lat;
+      wwd.navigator.lookAtLocation.longitude = sat.position.lon;
+      wwd.navigator.range = Math.max(200000, sat.position.alt + 200000);
+      wwd.redraw();
+    }
+  }
+
+  // speed range UI
+  document.getElementById('speed').oninput = e => { document.getElementById('speedVal').textContent = e.target.value; };
+
+  // End of script
+  </script>
+</body>
+</html>
