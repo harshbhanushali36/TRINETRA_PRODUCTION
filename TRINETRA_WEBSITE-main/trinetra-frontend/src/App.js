@@ -2,11 +2,11 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import Home from './Home';
+import Home from './home';
 import SignIn from './SignIn';
 import SignUp from './SignUp';
 import EmergencyEnroll from './EmergencyEnroll';
-import Dashboard from './dashboard';
+import Dashboard from './Dashboard';
 
 // Define theme
 const theme = createTheme({
