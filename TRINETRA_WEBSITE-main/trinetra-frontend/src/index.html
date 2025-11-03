@@ -4,54 +4,485 @@
   <meta charset="utf-8" />
   <title>TRINETRA — Live Orbital Visualization</title>
 
-  <!-- NASA WorldWind (unchanged) -->
+  <!-- Import Iceland font from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Iceland&display=swap" rel="stylesheet">
+
+  <!-- NASA WorldWind -->
   <script src="https://files.worldwind.arc.nasa.gov/artifactory/web/0.11.0/worldwind.min.js"></script>
 
   <!-- satellite.js for TLE propagation -->
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.0.0/dist/satellite.min.js"></script>
 
-  <!-- Pako for gzip decompression - rock solid library -->
+  <!-- Pako for gzip decompression -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <style>
-    /* (copied/kept your UI CSS exactly as requested) */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #000; overflow: hidden; height: 100vh;
+    /* Import Iceland font from Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
+
+    /* Apply Iceland font globally */
+    * {
+      font-family: 'Iceland', sans-serif;
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
     }
-    #globe { width: 100%; height: 100%; position: absolute; }
-    .panel { position: absolute; background: rgba(10,15,30,0.9); color:#fff; padding:15px 20px; border-radius:12px; backdrop-filter: blur(20px); border:1px solid rgba(100,150,255,0.4); box-shadow:0 8px 32px rgba(0,0,0,0.5); z-index:10;}
-    #controls { top:20px; right:20px; width:260px; }
-    #legend { bottom:20px; left:20px; width:240px; }
-    #info { top:50%; right:20px; transform:translateY(-50%); width:320px; max-height:70vh; overflow-y:auto; display:none; }
-    #loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(10,15,30,0.95); padding:30px 50px; border-radius:15px; border:2px solid #4af; z-index:100; }
-    .spinner { border:4px solid rgba(100,150,255,0.3); border-top:4px solid #4af; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto 15px; }
-    @keyframes spin { 0%{transform:rotate(0deg);}100%{transform:rotate(360deg);} }
-    h3 { margin:0 0 15px; font-size:17px; color:#4af; border-bottom:2px solid rgba(100,150,255,0.4); padding-bottom:10px; font-weight:600; }
-    .stat { display:flex; justify-content:space-between; margin:10px 0; font-size:14px; align-items:center; }
-    .stat-label { color:#aaa; } .stat-value { color:#0f0; font-weight:bold; font-family:'Courier New', monospace; font-size:15px; }
-    .legend-item { display:flex; align-items:center; margin:10px 0; font-size:14px; }
-    .legend-color { width:18px; height:18px; border-radius:50%; margin-right:12px; box-shadow:0 0 12px currentColor; border:2px solid currentColor; }
-    input[type="range"] { width:100%; margin:10px 0; accent-color:#4af; height:6px; }
-    label { display:block; margin:12px 0 6px; font-size:13px; color:#aaa; font-weight:500; }
-    .close { float:right; cursor:pointer; font-size:26px; color:#f44; line-height:1; margin-top:-8px; transition:color 0.2s; }
-    .close:hover { color:#f88; }
-    .info-title { font-size:18px; color:#4af; margin-bottom:15px; font-weight:600; }
-    button { background:rgba(68,170,255,0.2); border:1px solid #4af; color:#4af; padding:8px 15px; border-radius:6px; cursor:pointer; font-size:13px; margin-top:10px; transition:all 0.2s; width:100%; }
-    button:hover { background:rgba(68,170,255,0.4); }
-    /* search/filter styles */
-    #searchPanel { top:20px; left:20px; width:300px; }
-    .search-box { width:100%; padding:10px 15px; background:rgba(20,25,45,0.8); border:1px solid rgba(100,150,255,0.4); border-radius:8px; color:white; font-size:14px; margin-bottom:15px; }
-    .search-box:focus { outline:none; border-color:#4af; box-shadow:0 0 8px rgba(68,170,255,0.5); }
-    .filter-group { margin:15px 0; } .filter-title { font-size:14px; color:#aaa; margin-bottom:8px; font-weight:500; }
-    .filter-options { display:flex; flex-wrap:wrap; gap:8px; } .filter-option { background:rgba(20,25,45,0.8); border:1px solid rgba(100,150,255,0.3); border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; transition:all 0.2s; } .filter-option:hover{ background:rgba(30,35,55,0.9); } .filter-option.active{ background:#4af; color:#000; border-color:#4af; } .filter-option.active:hover{ background:#6bf; }
-    .search-results { max-height:200px; overflow-y:auto; margin-top:10px; border-top:1px solid rgba(100,150,255,0.3); padding-top:10px; }
-    .search-result { padding:8px 10px; margin:5px 0; background:rgba(20,25,45,0.6); border-radius:6px; cursor:pointer; font-size:13px; transition:background 0.2s; }
-    .search-result:hover { background:rgba(30,35,55,0.8); }
-    .search-result.selected { background:rgba(68,170,255,0.3); border-left:3px solid #4af; }
+    
+    /* Ensure all MUI components use Iceland font */
+    body {
+      font-family: 'Iceland', sans-serif;
+      background: linear-gradient(135deg, #0a0a2a 0%, #1a1a4a 100%);
+      overflow: hidden; 
+      height: 100vh;
+    }
+    
+    /* Additional fallback for any missed elements */
+    h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label {
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    #globe { 
+      width: 100%; 
+      height: 100%; 
+      position: absolute; 
+    }
+    
+    /* Glass-morphism panels matching Home.js */
+    .panel { 
+      position: absolute;
+      background: rgba(26, 26, 74, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: #fff;
+      padding: 20px 24px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+      transition: all 0.3s ease;
+    }
+    
+    .panel:hover {
+      border-color: rgba(120, 219, 255, 0.5);
+      box-shadow: 0 12px 40px rgba(120, 219, 255, 0.2);
+    }
+    
+    #controls { 
+      top: 20px; 
+      right: 20px; 
+      width: 280px; 
+    }
+    
+    #legend { 
+      bottom: 20px; 
+      left: 20px; 
+      width: 260px; 
+    }
+    
+    /* FIXED: Info panel positioning - now positioned below controls */
+    #info { 
+      top: 120px;  /* Positioned below controls */
+      right: 20px; 
+      width: 340px; 
+      max-height: calc(100vh - 160px); /* Prevent overflow */
+      overflow-y: auto;
+      display: none;
+      z-index: 20; /* Higher z-index to appear above other panels */
+    }
+    
+    /* Custom scrollbar for info panel */
+    #info::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #info::-webkit-scrollbar-track {
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 3px;
+    }
+    
+    #info::-webkit-scrollbar-thumb {
+      background: rgba(120, 219, 255, 0.5);
+      border-radius: 3px;
+    }
+    
+    #info::-webkit-scrollbar-thumb:hover {
+      background: rgba(120, 219, 255, 0.7);
+    }
+    
+    /* Loading screen */
+    #loading { 
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(26, 26, 74, 0.95);
+      backdrop-filter: blur(30px);
+      padding: 40px 60px;
+      border-radius: 20px;
+      border: 2px solid rgba(120, 219, 255, 0.5);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+      z-index: 100;
+    }
+    
+    .spinner { 
+      border: 4px solid rgba(120, 219, 255, 0.2);
+      border-top: 4px solid #78dbff;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin { 
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); } 
+    }
+    
+    /* Headers */
+    h3 { 
+      margin: 0 0 18px;
+      font-size: 20px; /* Slightly larger for Iceland font */
+      font-weight: 400; /* Iceland is a regular weight font */
+      color: #78dbff;
+      border-bottom: 2px solid rgba(120, 219, 255, 0.3);
+      padding-bottom: 12px;
+      letter-spacing: 1px; /* Add letter spacing for better readability */
+    }
+    
+    /* Stats */
+    .stat { 
+      display: flex;
+      justify-content: space-between;
+      margin: 12px 0;
+      font-size: 16px; /* Slightly larger for Iceland font */
+      align-items: center;
+    }
+    
+    .stat-label { 
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 400; /* Regular weight for Iceland */
+    }
+    
+    .stat-value { 
+      color: #78dbff;
+      font-weight: 400; /* Regular weight for Iceland */
+      font-family: 'Iceland', monospace;
+      font-size: 18px; /* Slightly larger */
+      text-shadow: 0 0 10px rgba(120, 219, 255, 0.5);
+      letter-spacing: 0.5px;
+    }
+    
+    /* Legend items */
+    .legend-item { 
+      display: flex;
+      align-items: center;
+      margin: 14px 0;
+      font-size: 16px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+    }
+    
+    .legend-color { 
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 14px;
+      box-shadow: 0 0 16px currentColor;
+      border: 2px solid currentColor;
+    }
+    
+    /* Range slider - modern style */
+    input[type="range"] { 
+      width: 100%;
+      height: 6px;
+      margin: 12px 0;
+      background: rgba(120, 219, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #78dbff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+      transition: all 0.2s;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 20px rgba(120, 219, 255, 1);
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #78dbff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+      transition: all 0.2s;
+    }
+    
+    label { 
+      display: block;
+      margin: 14px 0 8px;
+      font-size: 16px; /* Slightly larger */
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 400; /* Regular weight */
+    }
+    
+    /* Close button */
+    .close { 
+      float: right;
+      cursor: pointer;
+      font-size: 28px;
+      color: #ff77c6;
+      line-height: 1;
+      margin-top: -10px;
+      transition: all 0.2s;
+      font-weight: 400; /* Regular weight */
+    }
+    
+    .close:hover { 
+      color: #ffa6dd;
+      transform: rotate(90deg);
+    }
+    
+    /* Info title */
+    .info-title { 
+      font-size: 22px; /* Slightly larger */
+      color: #78dbff;
+      margin-bottom: 18px;
+      font-weight: 400; /* Regular weight */
+      text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
+      letter-spacing: 1px;
+    }
+    
+    /* Buttons - matching Home.js style */
+    button { 
+      background: rgba(120, 219, 255, 0.2);
+      border: 1px solid #78dbff;
+      color: #78dbff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+      margin-top: 12px;
+      transition: all 0.3s ease;
+      width: 100%;
+      text-transform: none;
+      letter-spacing: 1px; /* Add letter spacing */
+    }
+    
+    button:hover { 
+      background: rgba(120, 219, 255, 0.3);
+      box-shadow: 0 0 20px rgba(120, 219, 255, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    /* Search panel */
+    #searchPanel { 
+      top: 20px;
+      left: 20px;
+      width: 320px;
+    }
+    
+    /* Search box - modern glass style */
+    .search-box { 
+      width: 100%;
+      padding: 12px 18px;
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 10px;
+      color: white;
+      font-size: 16px; /* Slightly larger */
+      margin-bottom: 18px;
+      transition: all 0.3s ease;
+      outline: none;
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    .search-box:focus { 
+      border-color: #78dbff;
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+      background: rgba(10, 10, 42, 0.7);
+    }
+    
+    .search-box::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+      font-family: 'Iceland', sans-serif;
+    }
+    
+    /* Filter groups */
+    .filter-group { 
+      margin: 18px 0;
+    }
+    
+    .filter-title { 
+      font-size: 15px; /* Slightly larger */
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 10px;
+      font-weight: 400; /* Regular weight */
+      text-transform: uppercase;
+      letter-spacing: 1px; /* Add letter spacing */
+    }
+    
+    .filter-options { 
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    /* Filter buttons - pill style */
+    .filter-option { 
+      background: rgba(10, 10, 42, 0.5);
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 15px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .filter-option:hover { 
+      background: rgba(20, 20, 52, 0.7);
+      border-color: rgba(120, 219, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    .filter-option.active { 
+      background: linear-gradient(135deg, #78dbff 0%, #a6e8ff 100%);
+      color: #0a0a2a;
+      border-color: #78dbff;
+      font-weight: 400; /* Regular weight */
+      box-shadow: 0 0 16px rgba(120, 219, 255, 0.5);
+    }
+    
+    .filter-option.active:hover { 
+      background: linear-gradient(135deg, #a6e8ff 0%, #c4f0ff 100%);
+      box-shadow: 0 0 24px rgba(120, 219, 255, 0.7);
+    }
+    
+    /* Search results */
+    .search-results { 
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 12px;
+      border-top: 1px solid rgba(120, 219, 255, 0.2);
+      padding-top: 12px;
+    }
+    
+    .search-results::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .search-results::-webkit-scrollbar-track {
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 3px;
+    }
+    
+    .search-results::-webkit-scrollbar-thumb {
+      background: rgba(120, 219, 255, 0.5);
+      border-radius: 3px;
+    }
+    
+    /* Search result items */
+    .search-result { 
+      padding: 10px 14px;
+      margin: 6px 0;
+      background: rgba(10, 10, 42, 0.4);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 15px; /* Slightly larger */
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    .search-result:hover { 
+      background: rgba(20, 20, 52, 0.6);
+      border-color: rgba(120, 219, 255, 0.3);
+      transform: translateX(4px);
+    }
+    
+    .search-result.selected { 
+      background: rgba(120, 219, 255, 0.2);
+      border-left: 3px solid #78dbff;
+      padding-left: 12px;
+    }
+    
+    /* Loading message styling */
+    #loadingMsg {
+      color: rgba(120, 219, 255, 0.8);
+      text-align: center;
+      margin-top: 12px;
+      font-size: 15px; /* Slightly larger */
+      font-weight: 400; /* Regular weight */
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .panel {
+        padding: 16px 20px;
+        border-radius: 12px;
+      }
+      
+      #searchPanel, #controls, #legend, #info {
+        width: calc(100% - 40px);
+        max-width: 320px;
+      }
+      
+      #searchPanel {
+        top: 10px;
+        left: 10px;
+      }
+      
+      #controls {
+        top: 10px;
+        right: 10px;
+      }
+      
+      #info {
+        top: 100px; /* Adjusted for mobile */
+        right: 10px;
+      }
+      
+      #legend {
+        bottom: 10px;
+        left: 10px;
+      }
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .panel {
+      animation: fadeIn 0.5s ease-out;
+    }
   </style>
 </head>
 <body>
@@ -60,11 +491,11 @@
 
   <div id="loading">
     <div class="spinner"></div>
-    <div style="color:#4af; text-align:center; font-size:14px;">Loading live TLE data & initializing...</div>
-    <div id="loadingMsg" style="color:#9cf; text-align:center; margin-top:8px; font-size:12px;"></div>
+    <div style="color:#4af; text-align:center; font-size:16px;">Loading live TLE data & initializing...</div>
+    <div id="loadingMsg" style="color:#9cf; text-align:center; margin-top:8px; font-size:14px;"></div>
   </div>
 
-  <!-- Search / Filter / Controls / Legend / Info (kept) -->
+  <!-- Search / Filter / Controls / Legend / Info -->
   <div id="searchPanel" class="panel">
     <h3>🔍 Search & Filter</h3>
     <input type="text" id="searchInput" class="search-box" placeholder="Search satellites...">
@@ -143,7 +574,10 @@
   wwd.addLayer(new WorldWind.AtmosphereLayer());
   wwd.addLayer(new WorldWind.StarFieldLayer());
   wwd.addLayer(new WorldWind.CompassLayer());
-  wwd.addLayer(new WorldWind.ViewControlsLayer(wwd));
+  
+  // Store reference to ViewControlsLayer to enable/disable it
+  let viewControlsLayer = new WorldWind.ViewControlsLayer(wwd);
+  wwd.addLayer(viewControlsLayer);
 
   const objectLayer = new WorldWind.RenderableLayer("Objects");
   const trailLayer = new WorldWind.RenderableLayer("Trails");
@@ -314,15 +748,25 @@
       <div class="stat"><span class="stat-label">Altitude:</span><span class="stat-value">${altitude} km</span></div>
       <div class="stat"><span class="stat-label">Orbit:</span><span class="stat-value">${orbitType.toUpperCase()}</span></div>
       <div class="stat"><span class="stat-label">Period:</span><span class="stat-value">${period}</span></div>
-      <div style="margin-top:10px; font-size:13px; color:#bde;">Launch: ${meta.launch_date || 'N/A'} | Country: ${meta.country || 'N/A'}</div>
+      <div style="margin-top:10px; font-size:15px; color:#bde;">Launch: ${meta.launch_date || 'N/A'} | Country: ${meta.country || 'N/A'}</div>
     `;
-    document.getElementById('info').style.display = 'block';
+    
+    // Position info panel below controls
+    const controlsPanel = document.getElementById('controls');
+    const controlsRect = controlsPanel.getBoundingClientRect();
+    const infoPanel = document.getElementById('info');
+    infoPanel.style.top = (controlsRect.bottom + 20) + 'px';
+    infoPanel.style.display = 'block';
+    
     document.getElementById('followButton').textContent = isFollowing && followSatelliteId===s.id ? 'Stop Following' : 'Follow Satellite';
   }
 
   function closeInfo(){
     document.getElementById('info').style.display = 'none';
     selected = null;
+    
+    // Always re-enable view controls when closing info
+    viewControlsLayer.enabled = true;
     isFollowing = false;
     followSatelliteId = null;
     document.getElementById('cameraMode').textContent = 'Free';
@@ -335,8 +779,20 @@
   function toggleFollowCamera(){
     if(!selected) return;
     isFollowing = !isFollowing;
-    if(isFollowing){ followSatelliteId = selected.id; document.getElementById('cameraMode').textContent = 'Following'; }
-    else { followSatelliteId = null; document.getElementById('cameraMode').textContent = 'Free'; }
+    
+    // Toggle view controls based on follow mode
+    viewControlsLayer.enabled = !isFollowing;
+    
+    if(isFollowing){ 
+      followSatelliteId = selected.id; 
+      document.getElementById('cameraMode').textContent = 'Following'; 
+    }
+    else { 
+      followSatelliteId = null; 
+      document.getElementById('cameraMode').textContent = 'Free'; 
+    }
+    
+    document.getElementById('followButton').textContent = isFollowing ? 'Stop Following' : 'Follow Satellite';
   }
 
   function getOrbitType(alt){ if(alt < 2000) return 'leo'; if(alt < 35786) return 'meo'; if(alt >= 35786 && alt < 36000) return 'geo'; return 'heo'; }
@@ -415,7 +871,7 @@
       document.getElementById('loading').innerHTML = `
         <div style="color:#f44; text-align:center;">
           <h3>Error loading data</h3>
-          <p style="margin:10px 0; font-size:13px;">${err.message}</p>
+          <p style="margin:10px 0; font-size:15px;">${err.message}</p>
           <button onclick="location.reload()" style="margin-top:15px;">Retry</button>
         </div>
       `;
@@ -543,9 +999,14 @@
           const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
           wwd.navigator.lookAtLocation.latitude = smoothPos.lat;
           wwd.navigator.lookAtLocation.longitude = smoothPos.lon;
-          // range based on altitude: low alt => closer; high alt => farther
-          const range = Math.max(100000, (smoothPos.alt + 200000));
-          wwd.navigator.range = range;
+          // Only update range if user hasn't manually zoomed
+          const currentRange = wwd.navigator.range;
+          const desiredRange = Math.max(100000, (smoothPos.alt + 200000));
+          
+          // Only update range if it hasn't been manually changed significantly
+          if (Math.abs(currentRange - desiredRange) < 50000) {
+            wwd.navigator.range = desiredRange;
+          }
         }
       }
 

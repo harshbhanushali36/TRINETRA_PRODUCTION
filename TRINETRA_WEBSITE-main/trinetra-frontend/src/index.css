@@ -1,0 +1,33 @@
+/* Import Iceland font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Iceland', sans-serif !important;
+}
+
+body {
+  margin: 0;
+  font-family: 'Iceland', sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Ensure all elements use Iceland font */
+h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label {
+  font-family: 'Iceland', sans-serif !important;
+}
+
+/* MUI components font override */
+.MuiTypography-root,
+.MuiButton-root,
+.MuiTextField-root,
+.MuiInputBase-root {
+  font-family: 'Iceland', sans-serif !important;
+}

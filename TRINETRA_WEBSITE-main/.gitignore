@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Builds
+build/
+dist/
+.next/
+out/
+.cache/
+
+# Testing
+coverage/
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-*.log*
+pnpm-*.log*
+
+# IDE/editor
+.vscode/
+.idea/
+.eslintcache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.local
+.sass-cache/

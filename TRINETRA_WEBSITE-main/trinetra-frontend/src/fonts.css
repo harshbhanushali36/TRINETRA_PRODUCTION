@@ -1,0 +1,17 @@
+/* Import Iceland font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
+
+/* Apply Iceland font globally */
+* {
+  font-family: 'Iceland', sans-serif;
+}
+
+/* Ensure all MUI components use Iceland font */
+body {
+  font-family: 'Iceland', sans-serif;
+}
+
+/* Additional fallback for any missed elements */
+h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea {
+  font-family: 'Iceland', sans-serif;
+}
