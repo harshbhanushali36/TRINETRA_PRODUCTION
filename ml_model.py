@@ -559,12 +559,40 @@ class ImprovedConjunctionAnalyzer:
         }
         
         return float(pc_mc), float(pc_alfano), diagnostics
+#!/usr/bin/env python3
+"""
+Complete Fixed ML Risk Predictor with Improved Synthetic Data Generation
+Full replacement class for your existing MLRiskPredictor
+"""
+
+
+
+#!/usr/bin/env python3
+"""
+FIXED ML Risk Predictor - Physics First, Then Proper ML Training
+Fixes:
+1. Physics analysis runs completely first
+2. ML trains AFTER all real conjunctions are found
+3. Proper balanced synthetic data generation
+4. Both outputs always available for comparison
+"""
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+from datetime import datetime, timedelta, timezone
+import joblib
+import os
+
 class MLRiskPredictor:
-    """Machine Learning based risk prediction using Random Forest"""
+    """Machine Learning based risk prediction - FIXED VERSION"""
     
     def __init__(self):
         self.classifier = RandomForestClassifier(
-            n_estimators=200,
+            n_estimators=300,
             max_depth=20,
             min_samples_split=5,
             min_samples_leaf=2,
@@ -574,7 +602,7 @@ class MLRiskPredictor:
         )
         
         self.regressor = RandomForestRegressor(
-            n_estimators=200,
+            n_estimators=300,
             max_depth=20,
             min_samples_split=5,
             min_samples_leaf=2,
@@ -584,16 +612,17 @@ class MLRiskPredictor:
         )
         
         self.scaler = StandardScaler()
-        self.label_encoder = LabelEncoder()
         self.is_trained = False
         self.feature_names = []
+        self.residual_std = 0
+        self.residual_mean = 0
         
-    def prepare_features(self, conjunction_data: Dict) -> np.ndarray: 
-        """Enhanced feature extraction with better feature engineering"""
+    def prepare_features(self, conjunction_data: dict) -> np.ndarray: 
+        """Enhanced feature extraction"""
         
         features = []
         
-        # === BASIC PHYSICAL FEATURES ===
+        # Basic features
         miss_dist = conjunction_data.get('miss_distance_km', 0)
         rel_vel = conjunction_data.get('relative_velocity_ms', 0)
         combined_radius = conjunction_data.get('combined_radius_m', 0)
@@ -604,301 +633,399 @@ class MLRiskPredictor:
         features.append(combined_radius)
         features.append(pos_uncertainty)
         
-        # === TLE AGE FEATURES ===
+        # TLE ages
         tle_age1 = conjunction_data.get('tle_age_days_obj1', 0)
         tle_age2 = conjunction_data.get('tle_age_days_obj2', 0)
-        features.append(tle_age1)
-        features.append(tle_age2)
-        features.append(max(tle_age1, tle_age2))
-        features.append(abs(tle_age1 - tle_age2))  # Age difference
+        features.extend([tle_age1, tle_age2, max(tle_age1, tle_age2), abs(tle_age1 - tle_age2)])
         
-        # === PROBABILITY FEATURES ===
+        # Probability features
         pc_mc = conjunction_data.get('pc_monte_carlo', 0)
         pc_alfano = conjunction_data.get('pc_alfano', 0)
         pc_max = conjunction_data.get('pc_maximum', 1e-15)
+        features.extend([pc_mc, pc_alfano, np.log10(pc_max + 1e-15), abs(pc_mc - pc_alfano)])
         
-        features.append(pc_mc)
-        features.append(pc_alfano)
-        features.append(np.log10(pc_max + 1e-15))
-        features.append(abs(pc_mc - pc_alfano))  # Method disagreement
-        
-        # === ENCOUNTER PLANE FEATURES ===
+        # Encounter plane
         encounter_miss = conjunction_data.get('encounter_plane_miss_distance_km', 0)
         max_sigma = conjunction_data.get('max_position_sigma_km', 0)
         min_sigma = conjunction_data.get('min_position_sigma_km', 0)
+        features.extend([encounter_miss, max_sigma, min_sigma, max_sigma / max(min_sigma, 0.001)])
         
-        features.append(encounter_miss)
-        features.append(max_sigma)
-        features.append(min_sigma)
-        features.append(max_sigma / max(min_sigma, 0.001))  # Ellipticity
-        
-        # === COVARIANCE FEATURES ===
+        # Covariance
         cond_num = conjunction_data.get('covariance_condition_number', 1)
         features.append(min(cond_num, 1000) if np.isfinite(cond_num) else 1000)
         
-        # Eigenvalue features
+        # Eigenvalues
         eigenvals = conjunction_data.get('covariance_eigenvalues_km2', [])
         if eigenvals and len(eigenvals) >= 2:
-            features.append(np.sqrt(max(eigenvals)))  # Max uncertainty
-            features.append(np.sqrt(min(eigenvals)))  # Min uncertainty
-            features.append(np.mean([np.sqrt(e) for e in eigenvals]))  # Mean uncertainty
+            features.extend([np.sqrt(max(eigenvals)), np.sqrt(min(eigenvals)), 
+                           np.mean([np.sqrt(e) for e in eigenvals])])
         else:
             features.extend([pos_uncertainty, pos_uncertainty*0.5, pos_uncertainty*0.75])
         
-        # === OBJECT TYPE FEATURES (Enhanced) ===
+        # Object types
         type1 = conjunction_data.get('type1', 'SATELLITE')
         type2 = conjunction_data.get('type2', 'SATELLITE')
+        features.extend([
+            1 if type1 == 'DEBRIS' else 0,
+            1 if type2 == 'DEBRIS' else 0,
+            1 if type1 == 'ROCKET_BODY' else 0,
+            1 if type2 == 'ROCKET_BODY' else 0,
+            1 if 'DEBRIS' in [type1, type2] else 0,
+            1 if 'ROCKET_BODY' in [type1, type2] else 0
+        ])
         
-        # Binary features
-        features.append(1 if type1 == 'DEBRIS' else 0)
-        features.append(1 if type2 == 'DEBRIS' else 0)
-        features.append(1 if type1 == 'ROCKET_BODY' else 0)
-        features.append(1 if type2 == 'ROCKET_BODY' else 0)
-        features.append(1 if 'DEBRIS' in [type1, type2] else 0)
-        features.append(1 if 'ROCKET_BODY' in [type1, type2] else 0)
-        
-        # Risk multipliers based on object types
         type_risk = {'DEBRIS': 3, 'ROCKET_BODY': 2, 'SATELLITE': 1}
         features.append(type_risk.get(type1, 1) * type_risk.get(type2, 1))
         
-        # === NORMALIZED FEATURES ===
-        features.append(miss_dist / max(pos_uncertainty, 0.1))  # Normalized miss distance
-        features.append(miss_dist / max(max_sigma, 0.1))  # Miss relative to max uncertainty
-        features.append(combined_radius / 1000 / max(miss_dist, 0.001))  # Size-to-miss ratio
+        # Normalized features
+        features.extend([
+            miss_dist / max(pos_uncertainty, 0.1),
+            miss_dist / max(max_sigma, 0.1),
+            combined_radius / 1000 / max(miss_dist, 0.001)
+        ])
         
-        # === INTERACTION FEATURES ===
-        features.append(rel_vel * miss_dist)  # Kinetic factor
-        features.append(rel_vel * pos_uncertainty)  # Velocity-uncertainty product
-        features.append(np.log10(rel_vel + 1) * np.log10(miss_dist + 0.001))  # Log interaction
+        # Interactions
+        features.extend([
+            rel_vel * miss_dist,
+            rel_vel * pos_uncertainty,
+            np.log10(rel_vel + 1) * np.log10(miss_dist + 0.001)
+        ])
         
-        # === POLYNOMIAL FEATURES ===
-        features.append(miss_dist ** 2)
-        features.append(np.sqrt(miss_dist))
-        features.append(pos_uncertainty ** 2)
-        features.append(1 / max(miss_dist, 0.001))  # Inverse miss distance
+        # Polynomial
+        features.extend([
+            miss_dist ** 2,
+            np.sqrt(max(miss_dist, 0)),
+            pos_uncertainty ** 2,
+            1 / max(miss_dist, 0.001)
+        ])
         
-        # === TIME-BASED FEATURES ===
+        # Time features
         if 'tca' in conjunction_data and isinstance(conjunction_data['tca'], datetime):
             hours_to_tca = (conjunction_data['tca'] - datetime.now(timezone.utc)).total_seconds() / 3600
-            features.append(max(0, min(hours_to_tca, 168)))
-            features.append(1 if hours_to_tca < 24 else 0)  # Urgent flag
-            features.append(1 if hours_to_tca < 6 else 0)   # Critical flag
+            features.extend([
+                max(0, min(hours_to_tca, 168)),
+                1 if hours_to_tca < 24 else 0,
+                1 if hours_to_tca < 6 else 0
+            ])
         else:
             features.extend([24, 0, 0])
         
-        # === STATISTICAL FEATURES ===
-        # Mahalanobis distance approximation
+        # Statistical
         if max_sigma > 0 and min_sigma > 0:
             mahal_approx = miss_dist / np.sqrt(max_sigma * min_sigma)
-            features.append(mahal_approx)
-            features.append(np.exp(-0.5 * mahal_approx**2))  # Gaussian-like score
+            features.extend([mahal_approx, np.exp(-0.5 * mahal_approx**2)])
         else:
             features.extend([0, 0])
         
-        # === CATEGORICAL ENCODING ===
-        # Risk bands based on miss distance
-        features.append(1 if miss_dist < 1 else 0)    # Very close
-        features.append(1 if miss_dist < 5 else 0)    # Close
-        features.append(1 if miss_dist < 10 else 0)   # Moderate
-        
-        # Uncertainty bands
-        features.append(1 if pos_uncertainty < 1 else 0)   # High confidence
-        features.append(1 if pos_uncertainty < 5 else 0)   # Moderate confidence
-        features.append(1 if pos_uncertainty > 10 else 0)  # Low confidence
+        # Risk bands
+        features.extend([
+            1 if miss_dist < 1 else 0,
+            1 if miss_dist < 5 else 0,
+            1 if miss_dist < 10 else 0,
+            1 if pos_uncertainty < 1 else 0,
+            1 if pos_uncertainty < 5 else 0,
+            1 if pos_uncertainty > 10 else 0
+        ])
         
         return np.array(features)
     
     def create_risk_categories(self, pc_values: np.ndarray) -> np.ndarray:
         """Create risk categories based on collision probability"""
-        
         categories = np.zeros(len(pc_values), dtype=int)
-        
-        # NASA/ESA risk thresholds
         categories[pc_values > 1e-4] = 3  # EMERGENCY
         categories[(pc_values > 1e-5) & (pc_values <= 1e-4)] = 2  # HIGH
         categories[(pc_values > 1e-7) & (pc_values <= 1e-5)] = 1  # MEDIUM
-        # categories[pc_values <= 1e-7] = 0  # LOW (default)
-        
         return categories
     
-    def train(self, training_data: pd.DataFrame, use_synthetic: bool = True):
-        """Enhanced training with uncertainty quantification"""
+    def generate_synthetic_conjunction(self, risk_level: str) -> dict:
+        """
+        Generate realistic synthetic conjunction data - FIXED VERSION
+        """
+        
+        # FIXED: Proper parameter ranges for each risk level
+        if risk_level == 'EMERGENCY':
+            miss_distance = np.random.uniform(0.05, 1.5)
+            rel_velocity = np.random.normal(10000, 2000)
+            pos_uncertainty = np.random.uniform(0.5, 2.0)
+            pc_target = np.random.uniform(1e-4, 1e-3)
+            
+        elif risk_level == 'HIGH':
+            miss_distance = np.random.uniform(1.0, 5.0)
+            rel_velocity = np.random.normal(8000, 2500)
+            pos_uncertainty = np.random.uniform(1.0, 4.0)
+            pc_target = np.random.uniform(1e-5, 9e-5)
+            
+        elif risk_level == 'MEDIUM':
+            miss_distance = np.random.uniform(3.0, 15.0)
+            rel_velocity = np.random.normal(7000, 3000)
+            pos_uncertainty = np.random.uniform(2.0, 8.0)
+            pc_target = np.random.uniform(1e-7, 9e-6)
+            
+        else:  # LOW
+            miss_distance = np.random.uniform(10.0, 50.0)
+            rel_velocity = np.random.normal(5000, 3000)
+            pos_uncertainty = np.random.uniform(5.0, 20.0)
+            pc_target = np.random.uniform(1e-12, 9e-8)
+        
+        # Ensure realistic ranges
+        miss_distance = max(0.05, miss_distance)
+        rel_velocity = max(500, min(15000, abs(rel_velocity)))
+        pos_uncertainty = max(0.1, pos_uncertainty)
+        
+        # Anisotropic uncertainties
+        max_sigma = pos_uncertainty * np.random.uniform(2.0, 4.0)
+        min_sigma = pos_uncertainty * np.random.uniform(0.3, 0.8)
+        
+        # TLE ages
+        tle_age1 = max(0.1, min(30, np.random.exponential(3)))
+        tle_age2 = max(0.1, min(30, np.random.exponential(3)))
+        
+        # Object types
+        if risk_level in ['HIGH', 'EMERGENCY']:
+            type_choices = ['DEBRIS', 'ROCKET_BODY', 'SATELLITE']
+            type_probs = [0.5, 0.3, 0.2]
+        else:
+            type_choices = ['SATELLITE', 'DEBRIS', 'ROCKET_BODY']
+            type_probs = [0.5, 0.3, 0.2]
+        
+        type1 = np.random.choice(type_choices, p=type_probs)
+        type2 = np.random.choice(type_choices, p=type_probs)
+        
+        # Combined radius
+        radius_map = {
+            'DEBRIS': np.random.uniform(0.5, 2), 
+            'ROCKET_BODY': np.random.uniform(3, 7), 
+            'SATELLITE': np.random.uniform(5, 15)
+        }
+        combined_radius = radius_map[type1] + radius_map[type2]
+        
+        # Calculate collision probabilities to match target
+        # Use the target Pc directly with small noise
+        pc_monte_carlo = pc_target * np.random.lognormal(0, 0.15)
+        pc_alfano = pc_target * np.random.lognormal(0, 0.1)
+        
+        # Encounter plane
+        encounter_miss = miss_distance * np.random.uniform(0.7, 0.95)
+        
+        # Eigenvalues
+        eigenval1 = max_sigma**2
+        eigenval2 = min_sigma**2
+        
+        # TCA
+        hours_to_tca = np.random.exponential(12) if risk_level in ['HIGH', 'EMERGENCY'] else np.random.exponential(48)
+        tca = datetime.now(timezone.utc) + timedelta(hours=hours_to_tca)
+        
+        return {
+            'object1': f'SYNTH_{type1}_{np.random.randint(10000, 99999)}',
+            'object2': f'SYNTH_{type2}_{np.random.randint(10000, 99999)}',
+            'type1': type1,
+            'type2': type2,
+            'tca': tca,
+            'miss_distance_km': float(miss_distance),
+            'relative_velocity_ms': float(rel_velocity),
+            'pc_monte_carlo': float(pc_monte_carlo),
+            'pc_alfano': float(pc_alfano),
+            'pc_maximum': float(max(pc_monte_carlo, pc_alfano)),
+            'combined_radius_m': float(combined_radius),
+            'position_uncertainty_km': float(pos_uncertainty),
+            'tle_age_days_obj1': float(tle_age1),
+            'tle_age_days_obj2': float(tle_age2),
+            'encounter_plane_miss_distance_km': float(encounter_miss),
+            'max_position_sigma_km': float(max_sigma),
+            'min_position_sigma_km': float(min_sigma),
+            'covariance_condition_number': float(max_sigma / max(min_sigma, 0.001)),
+            'covariance_eigenvalues_km2': [float(eigenval1), float(eigenval2)],
+            'monte_carlo_samples_used': 50000,
+            'is_synthetic': True,
+            'synthetic_risk_level': risk_level
+        }
+
+    def train(self, real_data: pd.DataFrame, min_synthetic_per_class: int = 150):
+        """
+        FIXED: Train with real data + balanced synthetic augmentation
+        Always generates enough synthetic data for proper training
+        """
         
         print("\n" + "="*70)
-        print("TRAINING ML RISK PREDICTION MODEL WITH UNCERTAINTY")
+        print("TRAINING ML MODEL: REAL DATA + SYNTHETIC AUGMENTATION")
         print("="*70)
         
-        if len(training_data) < 20:
-            print("Insufficient data for training (need at least 20 samples)")
-            return
+        print(f"\nReal data: {len(real_data)} samples")
         
-        # Augment with synthetic data if requested
-        if use_synthetic:
-            training_data = self.augment_training_data(
-                training_data, 
-                synthetic_ratio=2.0,
-                balance_classes=True
-            )
+        # Analyze real data distribution if available
+        real_distribution = {0: 0, 1: 0, 2: 0, 3: 0}
+        if len(real_data) > 0:
+            real_pc = real_data['pc_maximum'].values
+            real_categories = self.create_risk_categories(real_pc)
+            unique, counts = np.unique(real_categories, return_counts=True)
+            for cat, count in zip(unique, counts):
+                real_distribution[cat] = count
+            
+            print("Real data distribution:")
+            risk_names = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']
+            for cat in range(4):
+                if real_distribution[cat] > 0:
+                    print(f"  {risk_names[cat]}: {real_distribution[cat]}")
+        
+        # Generate balanced synthetic data
+        print(f"\nGenerating synthetic data ({min_synthetic_per_class} per class)...")
+        synthetic_data = []
+        risk_names = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']
+        
+        for cat_id, risk_name in enumerate(risk_names):
+            # Generate enough to reach min_synthetic_per_class total
+            current_count = real_distribution[cat_id]
+            needed = max(min_synthetic_per_class - current_count, 50)  # At least 50 synthetic per class
+            
+            print(f"  {risk_name}: Generating {needed} samples (have {current_count} real)")
+            for _ in range(needed):
+                synthetic_data.append(self.generate_synthetic_conjunction(risk_name))
+        
+        synthetic_df = pd.DataFrame(synthetic_data)
+        print(f"\nGenerated {len(synthetic_df)} synthetic samples")
+        
+        # Combine datasets
+        if len(real_data) > 0:
+            training_data = pd.concat([real_data, synthetic_df], ignore_index=True)
+            print(f"Total training data: {len(training_data)} ({len(real_data)} real + {len(synthetic_df)} synthetic)")
+        else:
+            training_data = synthetic_df
+            print(f"Total training data: {len(training_data)} (all synthetic)")
         
         # Prepare features
+        print("\nPreparing features...")
         X = []
         for _, row in training_data.iterrows():
             features = self.prepare_features(row.to_dict())
             X.append(features)
         
         X = np.array(X)
-        
-        # Create labels
         y_prob = training_data['pc_maximum'].values
         y_cat = self.create_risk_categories(y_prob)
         
+        # Final distribution
+        unique, counts = np.unique(y_cat, return_counts=True)
+        print(f"\nFinal training distribution:")
+        for cat, count in zip(unique, counts):
+            print(f"  {risk_names[cat]}: {count}")
+        
         # Split data
-        X_train, X_test, y_cat_train, y_cat_test, y_prob_train, y_prob_test = train_test_split(
-            X, y_cat, y_prob, test_size=0.2, random_state=42, stratify=y_cat
-        )
+        test_size = 0.2 if len(X) >= 100 else 0.15
+        
+        try:
+            X_train, X_test, y_cat_train, y_cat_test, y_prob_train, y_prob_test = train_test_split(
+                X, y_cat, y_prob, test_size=test_size, random_state=42, stratify=y_cat
+            )
+        except ValueError:
+            print("  Warning: Stratification failed, using random split")
+            X_train, X_test, y_cat_train, y_cat_test, y_prob_train, y_prob_test = train_test_split(
+                X, y_cat, y_prob, test_size=test_size, random_state=42
+            )
         
         # Scale features
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
         
-        # Train ensemble of classifiers for uncertainty
-        print("\nTraining Random Forest Ensemble for Uncertainty...")
-        
-        # Main classifier with more trees for better uncertainty
-        self.classifier = RandomForestClassifier(
-            n_estimators=500,  # More trees for better uncertainty
-            max_depth=20,
-            min_samples_split=5,
-            min_samples_leaf=2,
-            max_features='sqrt',
-            random_state=42,
-            n_jobs=-1,
-            oob_score=True  # Out-of-bag score for validation
-        )
-        
+        # Train classifier
+        print("\nTraining Random Forest Classifier...")
         self.classifier.fit(X_train_scaled, y_cat_train)
         
-        # Train multiple regressors for uncertainty quantification
-        print("\nTraining Regression Ensemble...")
-        
-        self.regressor = RandomForestRegressor(
-            n_estimators=500,
-            max_depth=20,
-            min_samples_split=5,
-            min_samples_leaf=2,
-            max_features='sqrt',
-            random_state=42,
-            n_jobs=-1,
-            oob_score=True
-        )
-        
+        # Train regressor
+        print("Training Random Forest Regressor...")
         y_prob_train_log = np.log10(y_prob_train + 1e-15)
         self.regressor.fit(X_train_scaled, y_prob_train_log)
         
-        # Store training statistics for uncertainty calibration
+        # Store residual statistics
         y_pred_train = self.regressor.predict(X_train_scaled)
         residuals = y_prob_train_log - y_pred_train
         self.residual_std = np.std(residuals)
         self.residual_mean = np.mean(residuals)
         
-        # Calculate feature importances with confidence
-        importances = self.classifier.feature_importances_
-        std = np.std([tree.feature_importances_ for tree in self.classifier.estimators_], axis=0)
-        
-        # Enhanced feature names
-        self.feature_names = [
-            'miss_distance_km', 'relative_velocity_ms', 'combined_radius_m',
-            'position_uncertainty_km', 'tle_age_days_obj1', 'tle_age_days_obj2',
-            'max_tle_age', 'tle_age_difference', 'pc_monte_carlo', 'pc_alfano', 
-            'log_pc_maximum', 'pc_method_disagreement', 'encounter_plane_miss_km', 
-            'max_sigma_km', 'min_sigma_km', 'ellipticity', 'covariance_condition',
-            'max_eigenval_sqrt', 'min_eigenval_sqrt', 'mean_eigenval_sqrt',
-            'is_debris_1', 'is_debris_2', 'is_rocket_1', 'is_rocket_2', 
-            'has_debris', 'has_rocket', 'type_risk_product', 'normalized_miss',
-            'miss_to_max_sigma', 'size_to_miss_ratio', 'kinetic_factor',
-            'vel_uncertainty_product', 'log_interaction', 'miss_squared',
-            'miss_sqrt', 'uncertainty_squared', 'inverse_miss', 'hours_to_tca',
-            'urgent_flag', 'critical_flag', 'mahalanobis_approx', 'gaussian_score',
-            'very_close', 'close', 'moderate', 'high_confidence', 
-            'moderate_confidence', 'low_confidence'
-        ]
-        
-        # Print feature importance with uncertainty
-        print("\nTop 10 Feature Importances (with uncertainty):")
-        indices = np.argsort(importances)[::-1][:10]
-        for idx in indices:
-            if idx < len(self.feature_names):
-                print(f"  {self.feature_names[idx]}: {importances[idx]:.4f} ± {std[idx]:.4f}")
-        
-        # Evaluate on test set
-        print("\nModel Performance:")
+        # Evaluate
         y_cat_pred = self.classifier.predict(X_test_scaled)
         accuracy = np.mean(y_cat_pred == y_cat_test)
-        print(f"  Classification Accuracy: {accuracy:.3f}")
+        print(f"\nClassification Accuracy: {accuracy:.3f}")
         
-        if hasattr(self.classifier, 'oob_score_'):
-            print(f"  OOB Score (Classification): {self.classifier.oob_score_:.3f}")
+        # Classification report
+        print("\nClassification Report:")
+        unique_classes = sorted(np.unique(np.concatenate([y_cat_test, y_cat_pred])))
+        target_names_subset = [risk_names[i] for i in unique_classes]
         
-        if hasattr(self.regressor, 'oob_score_'):
-            print(f"  OOB Score (Regression): {self.regressor.oob_score_:.3f}")
+        print(classification_report(y_cat_test, y_cat_pred, 
+                                   labels=unique_classes,
+                                   target_names=target_names_subset,
+                                   zero_division=0))
         
         self.is_trained = True
-        print("\n✓ ML models with uncertainty trained successfully!")
+        print("✓ ML model trained successfully!")
 
-    def predict_risk(self, conjunction_data: Dict) -> Dict:
-        """Enhanced prediction with uncertainty quantification"""
+    def predict_risk(self, conjunction_data: dict) -> dict:
+        """
+        ALWAYS return BOTH physics and ML predictions for comparison
+        """
         
+        # PHYSICS-BASED RISK (always available)
+        pc = conjunction_data.get('pc_maximum', 0)
+        if pc > 1e-4:
+            physics_category = 'EMERGENCY'
+            physics_score = 3
+        elif pc > 1e-5:
+            physics_category = 'HIGH'
+            physics_score = 2
+        elif pc > 1e-7:
+            physics_category = 'MEDIUM'
+            physics_score = 1
+        else:
+            physics_category = 'LOW'
+            physics_score = 0
+        
+        result = {
+            'physics_risk_category': physics_category,
+            'physics_risk_score': physics_score,
+            'physics_collision_probability': pc,
+        }
+        
+        # ML PREDICTIONS (if trained)
         if not self.is_trained:
-            return {
-                'ml_risk_category': 'UNKNOWN',
-                'ml_risk_score': 0,
-                'ml_collision_probability': conjunction_data.get('pc_maximum', 0),
-                'ml_collision_probability_lower': 0,
-                'ml_collision_probability_upper': 0,
-                'ml_confidence': 0,
-                'ml_uncertainty': 'HIGH',
+            result.update({
+                'ml_risk_category': 'NOT_TRAINED',
+                'ml_risk_score': -1,
+                'ml_collision_probability': 0.0,
+                'ml_confidence': 0.0,
+                'ml_uncertainty': 'N/A',
                 'ml_available': False
-            }
+            })
+            return result
         
-        # Prepare features
+        # ML prediction
         X = self.prepare_features(conjunction_data).reshape(1, -1)
         X_scaled = self.scaler.transform(X)
         
-        # Get predictions from all trees for uncertainty
+        # Classification
         risk_probabilities = self.classifier.predict_proba(X_scaled)[0]
         risk_category = np.argmax(risk_probabilities)
         
-        # Get prediction intervals from regression ensemble
-        all_tree_predictions = []
-        for tree in self.regressor.estimators_:
-            pred = tree.predict(X_scaled)[0]
-            all_tree_predictions.append(pred)
-        
-        all_tree_predictions = np.array(all_tree_predictions)
-        
-        # Calculate statistics
+        # Regression with uncertainty
+        all_tree_predictions = [tree.predict(X_scaled)[0] for tree in self.regressor.estimators_]
         collision_prob_log_mean = np.mean(all_tree_predictions)
         collision_prob_log_std = np.std(all_tree_predictions)
         
-        # Add residual uncertainty
         total_uncertainty = np.sqrt(collision_prob_log_std**2 + self.residual_std**2)
         
-        # Calculate prediction intervals (95% confidence)
+        # 95% CI
         z_score = 1.96
         collision_prob_log_lower = collision_prob_log_mean - z_score * total_uncertainty
         collision_prob_log_upper = collision_prob_log_mean + z_score * total_uncertainty
         
-        # Convert from log scale
         collision_prob = 10**collision_prob_log_mean
         collision_prob_lower = 10**collision_prob_log_lower
         collision_prob_upper = 10**collision_prob_log_upper
         
-        # Calculate entropy-based uncertainty
+        # Entropy
         entropy = -np.sum(risk_probabilities * np.log(risk_probabilities + 1e-10))
         max_entropy = -np.log(1/len(risk_probabilities))
         normalized_entropy = entropy / max_entropy
         
-        # Determine uncertainty level
         if normalized_entropy < 0.3 and collision_prob_log_std < 0.5:
             uncertainty_level = 'LOW'
         elif normalized_entropy < 0.6 and collision_prob_log_std < 1.0:
@@ -906,212 +1033,26 @@ class MLRiskPredictor:
         else:
             uncertainty_level = 'HIGH'
         
-        # Risk names
         risk_names = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']
-        risk_name = risk_names[risk_category]
-        
-        # Confidence based on probability and tree agreement
         confidence = max(risk_probabilities) * 100 * (1 - normalized_entropy)
         
-        # Calculate prediction agreement among trees
-        tree_risk_predictions = []
-        for prob_tree in range(0, len(self.classifier.estimators_), 10):
-            tree = self.classifier.estimators_[prob_tree]
-            tree_pred = tree.predict(X_scaled)[0]
-            tree_risk_predictions.append(tree_pred)
-        
-        prediction_agreement = np.mean([p == risk_category for p in tree_risk_predictions])
-        
-        return {
-            'ml_risk_category': risk_name,
+        result.update({
+            'ml_risk_category': risk_names[risk_category],
             'ml_risk_score': int(risk_category),
             'ml_collision_probability': float(collision_prob),
             'ml_collision_probability_lower': float(collision_prob_lower),
             'ml_collision_probability_upper': float(collision_prob_upper),
             'ml_confidence': float(confidence),
             'ml_uncertainty': uncertainty_level,
-            'ml_entropy': float(normalized_entropy),
-            'ml_std_log': float(collision_prob_log_std),
-            'ml_prediction_agreement': float(prediction_agreement),
-            'ml_available': True
-        }
-    def generate_synthetic_conjunction(self, risk_level: str = 'random') -> Dict:
-        """Generate synthetic conjunction data for training"""
+            'ml_available': True,
+            'category_agreement': physics_category == risk_names[risk_category],
+            'probability_ratio': float(collision_prob / max(pc, 1e-15))
+        })
         
-        np.random.seed(None)  # Ensure randomness
-        
-        # Risk level distributions
-        risk_params = {
-            'EMERGENCY': {
-                'miss_distance': (0.1, 2.0),
-                'rel_velocity': (7000, 15000),
-                'uncertainty': (0.5, 2.0),
-                'pc_range': (1e-4, 1e-2)
-            },
-            'HIGH': {
-                'miss_distance': (1.0, 5.0),
-                'rel_velocity': (5000, 12000),
-                'uncertainty': (1.0, 5.0),
-                'pc_range': (1e-5, 1e-4)
-            },
-            'MEDIUM': {
-                'miss_distance': (3.0, 15.0),
-                'rel_velocity': (3000, 10000),
-                'uncertainty': (2.0, 10.0),
-                'pc_range': (1e-7, 1e-5)
-            },
-            'LOW': {
-                'miss_distance': (10.0, 50.0),
-                'rel_velocity': (1000, 8000),
-                'uncertainty': (5.0, 20.0),
-                'pc_range': (1e-12, 1e-7)
-            }
-        }
-        
-        # Select risk level
-        if risk_level == 'random':
-            # Weighted selection (more low-risk events)
-            risk_level = np.random.choice(
-                ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'],
-                p=[0.7, 0.2, 0.08, 0.02]
-            )
-        
-        params = risk_params[risk_level]
-        
-        # Generate base parameters
-        miss_distance = np.random.uniform(*params['miss_distance'])
-        rel_velocity = np.random.uniform(*params['rel_velocity'])
-        pos_uncertainty = np.random.uniform(*params['uncertainty'])
-        
-        # Generate correlated uncertainties
-        max_sigma = pos_uncertainty * np.random.uniform(1.0, 3.0)
-        min_sigma = pos_uncertainty * np.random.uniform(0.3, 1.0)
-        
-        # Generate TLE ages with correlation to uncertainty
-        base_age = np.random.exponential(3.0)  # Most TLEs are fresh
-        tle_age1 = base_age + np.random.normal(0, 1)
-        tle_age2 = base_age + np.random.normal(0, 1)
-        tle_age1 = max(0.1, min(30, tle_age1))
-        tle_age2 = max(0.1, min(30, tle_age2))
-        
-        # Object types (correlated with risk)
-        if risk_level in ['HIGH', 'EMERGENCY']:
-            types = ['DEBRIS', 'ROCKET_BODY', 'SATELLITE']
-            type_probs = [0.5, 0.3, 0.2]  # More debris in high-risk
-        else:
-            types = ['SATELLITE', 'DEBRIS', 'ROCKET_BODY']
-            type_probs = [0.6, 0.25, 0.15]
-        
-        type1 = np.random.choice(types, p=type_probs)
-        type2 = np.random.choice(types, p=type_probs)
-        
-        # Combined radius based on object types
-        radius_map = {'DEBRIS': 1, 'ROCKET_BODY': 5, 'SATELLITE': 10}
-        combined_radius = radius_map[type1] + radius_map[type2]
-        combined_radius *= np.random.uniform(0.8, 1.2)  # Add variation
-        
-        # Generate collision probabilities with realistic correlation
-        # Base probability from miss distance and uncertainty
-        norm_miss = miss_distance / max(pos_uncertainty, 0.1)
-        
-        # Simplified analytical estimate
-        pc_base = np.exp(-0.5 * norm_miss**2) * (combined_radius/1000)**2 / (2*np.pi*pos_uncertainty**2)
-        
-        # Add noise and ensure within range
-        noise_factor = np.random.lognormal(0, 0.5)
-        pc_alfano = np.clip(pc_base * noise_factor, *params['pc_range'])
-        
-        # Monte Carlo typically has some variation from analytical
-        mc_variation = np.random.normal(1.0, 0.2)
-        pc_monte_carlo = np.clip(pc_alfano * mc_variation, *params['pc_range'])
-        
-        # Encounter plane miss (correlated with 3D miss)
-        encounter_miss = miss_distance * np.random.uniform(0.7, 1.0)
-        
-        # Generate eigenvalues (consistent with max/min sigma)
-        eigenval1 = max_sigma**2
-        eigenval2 = min_sigma**2
-        
-        # TCA in the future
-        hours_to_tca = np.random.exponential(24)  # Most events within a day
-        tca = datetime.now(timezone.utc) + timedelta(hours=hours_to_tca)
-        
-        return {
-            'object1': f'SYNTHETIC_{type1}_{np.random.randint(10000,99999)}',
-            'object2': f'SYNTHETIC_{type2}_{np.random.randint(10000,99999)}',
-            'type1': type1,
-            'type2': type2,
-            'tca': tca,
-            'miss_distance_km': miss_distance,
-            'relative_velocity_ms': rel_velocity,
-            'pc_monte_carlo': pc_monte_carlo,
-            'pc_alfano': pc_alfano,
-            'pc_maximum': max(pc_monte_carlo, pc_alfano),
-            'combined_radius_m': combined_radius,
-            'position_uncertainty_km': pos_uncertainty,
-            'tle_age_days_obj1': tle_age1,
-            'tle_age_days_obj2': tle_age2,
-            'encounter_plane_miss_distance_km': encounter_miss,
-            'max_position_sigma_km': max_sigma,
-            'min_position_sigma_km': min_sigma,
-            'covariance_condition_number': max_sigma / max(min_sigma, 0.001),
-            'covariance_eigenvalues_km2': [eigenval1, eigenval2],
-            'monte_carlo_samples_used': 50000,
-            'is_synthetic': True,
-            'synthetic_risk_level': risk_level
-        }
-
-    def augment_training_data(self, real_data: pd.DataFrame, 
-                             synthetic_ratio: float = 2.0,
-                             balance_classes: bool = True) -> pd.DataFrame:
-        """Augment real data with synthetic samples"""
-        
-        print("\nGenerating synthetic training data...")
-        
-        # Analyze real data distribution
-        real_pc = real_data['pc_maximum'].values
-        real_categories = self.create_risk_categories(real_pc)
-        
-        unique, counts = np.unique(real_categories, return_counts=True)
-        category_counts = dict(zip(unique, counts))
-        
-        print(f"Real data distribution: {category_counts}")
-        
-        # Generate synthetic data
-        synthetic_data = []
-        risk_names = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']
-        
-        if balance_classes:
-            # Generate equal samples for each class
-            max_count = max(counts) * synthetic_ratio
-            for cat_id in range(4):
-                risk_name = risk_names[cat_id]
-                current_count = category_counts.get(cat_id, 0)
-                needed = int(max_count - current_count)
-                
-                if needed > 0:
-                    print(f"Generating {needed} synthetic {risk_name} events...")
-                    for _ in range(needed):
-                        synthetic_data.append(self.generate_synthetic_conjunction(risk_name))
-        else:
-            # Generate proportionally
-            total_synthetic = int(len(real_data) * synthetic_ratio)
-            print(f"Generating {total_synthetic} synthetic events...")
-            
-            for _ in range(total_synthetic):
-                synthetic_data.append(self.generate_synthetic_conjunction('random'))
-        
-        # Combine datasets
-        synthetic_df = pd.DataFrame(synthetic_data)
-        augmented_data = pd.concat([real_data, synthetic_df], ignore_index=True)
-        
-        print(f"Dataset augmented: {len(real_data)} real + {len(synthetic_df)} synthetic")
-        
-        return augmented_data
+        return result
 
     def save_model(self, filepath: str):
-        """Save trained models to disk"""
-        
+        """Save trained model"""
         if not self.is_trained:
             print("No trained model to save")
             return
@@ -1120,24 +1061,25 @@ class MLRiskPredictor:
             'classifier': self.classifier,
             'regressor': self.regressor,
             'scaler': self.scaler,
-            'feature_names': self.feature_names,
-            'is_trained': self.is_trained
+            'is_trained': self.is_trained,
+            'residual_std': self.residual_std,
+            'residual_mean': self.residual_mean
         }
         
         joblib.dump(model_data, filepath)
-        print(f"Model saved to {filepath}")
+        print(f"✓ Model saved to {filepath}")
     
-    def load_model(self, filepath: str):
-        """Load trained models from disk"""
-        
+    def load_model(self, filepath: str) -> bool:
+        """Load trained model"""
         if os.path.exists(filepath):
             model_data = joblib.load(filepath)
             self.classifier = model_data['classifier']
             self.regressor = model_data['regressor']
             self.scaler = model_data['scaler']
-            self.feature_names = model_data['feature_names']
             self.is_trained = model_data['is_trained']
-            print(f"Model loaded from {filepath}")
+            self.residual_std = model_data.get('residual_std', 0)
+            self.residual_mean = model_data.get('residual_mean', 0)
+            print(f"✓ Model loaded from {filepath}")
             return True
         return False
 class ScientificallyAccurateCollisionPredictor:
@@ -1385,10 +1327,10 @@ class ScientificallyAccurateCollisionPredictor:
         return valid_conjunctions
     
     def analyze_conjunction(self, obj1: SpaceObject, obj2: SpaceObject,
-                           screening_epoch: datetime) -> Optional[Dict]:
-        """Analyze conjunction with enhanced diagnostics and logging"""
+                       screening_epoch: datetime) -> Optional[Dict]:
+        """Analyze conjunction with PHYSICS ONLY - ML comes later"""
         
-        # Find accurate TCA
+        # Find TCA
         tca = self.analyzer.find_time_of_closest_approach(obj1, obj2, screening_epoch)
         
         if tca is None:
@@ -1405,34 +1347,19 @@ class ScientificallyAccurateCollisionPredictor:
         miss_distance = np.linalg.norm(rel_pos)
         rel_speed = np.linalg.norm(rel_vel)
         
-        # Log suspicious outputs for debugging
-        if rel_speed < 0.1:  # Less than 100 m/s is suspicious for different orbits
-            debug_info = {
-                'objects': f"{obj1.name} vs {obj2.name}",
-                'state1': state1.copy(),
-                'state2': state2.copy(),
-                'relative_velocity': rel_vel.copy(),
-                'rel_speed_ms': rel_speed * 1000,
-                'miss_distance_km': miss_distance,
-                'tca': tca,
-                'issue': f"Suspiciously low relative velocity: {rel_speed*1000:.1f} m/s"
-            }
-            self.debug_log.append(debug_info)
-            print(f"DEBUG: Suspicious low rel. velocity {rel_speed*1000:.1f} m/s for {obj1.name} vs {obj2.name}")
-        
-        # Skip if miss distance is unrealistic
-        if miss_distance > 100:  # More than 100 km is not a conjunction
+        # Skip if unrealistic
+        if miss_distance > 100:
             return None
         
         # Combined covariance
         combined_cov = cov1 + cov2
         
-        # Object sizes (realistic)
+        # Object sizes
         radius1 = {'DEBRIS': 1, 'ROCKET_BODY': 5, 'SATELLITE': 10}.get(obj1.object_type, 5)
         radius2 = {'DEBRIS': 1, 'ROCKET_BODY': 5, 'SATELLITE': 10}.get(obj2.object_type, 5)
         combined_radius = radius1 + radius2
         
-        # Calculate enhanced collision probability — pass actual rel_vel!
+        # Calculate collision probability with actual rel_vel
         pc_mc, pc_alfano, diagnostics = self.analyzer.compute_collision_probability(
             rel_pos, rel_vel, combined_cov, combined_radius
         )
@@ -1441,6 +1368,7 @@ class ScientificallyAccurateCollisionPredictor:
         if max(pc_mc, pc_alfano) < 1e-12:
             return None
         
+        # PHYSICS RESULTS ONLY - NO ML HERE!
         result = {
             'object1': obj1.name,
             'object2': obj2.name,
@@ -1458,215 +1386,265 @@ class ScientificallyAccurateCollisionPredictor:
             'tle_age_days_obj2': obj2.tle_age_days
         }
         
-        # Add diagnostics
         result.update(diagnostics)
-        # Add ML predictions if enabled
-        if self.enable_ml and self.ml_predictor:
-            ml_predictions = self.ml_predictor.predict_risk(result)
-            result.update(ml_predictions)
-        # Store for potential ML training
+        
+        # Store for later ML training
         self.training_data.append(result)
         
         return result
+
     
-    def run_analysis(self, time_window_hours: float = 24) -> tuple:
-        """Run complete enhanced analysis with ML risk scoring"""
+    def run_analysis(self, time_window_hours: float = 24) -> pd.DataFrame:
+        """Run complete enhanced analysis with BOTH physics and ML outputs"""
+        
         print("\n" + "="*70)
-        print("ML-ENHANCED COLLISION PREDICTION SYSTEM")
-        print("With Random Forest Risk Scoring")
+        print("TWO-PHASE COLLISION PREDICTION SYSTEM")
+        print("Phase 1: Physics Analysis | Phase 2: ML Training & Prediction")
         print("="*70)
-
-        # Clear debug log
+        
         self.debug_log = []
-
-        # Screen with validation
+        self.training_data = []  # Clear training data
+        
+        # PHASE 1: PHYSICS-BASED ANALYSIS
+        print("\n" + "="*70)
+        print("PHASE 1: PHYSICS-BASED CONJUNCTION ANALYSIS")
+        print("="*70)
+        
         potential_conjunctions = self.screen_conjunctions_accurate(time_window_hours)
-
+        
         if not potential_conjunctions:
-            print("No conjunctions found within criteria")
+            print("No conjunctions found")
             return pd.DataFrame()
-
-        # Detailed analysis
-        print(f"\nAnalyzing {len(potential_conjunctions)} validated conjunctions...")
-
+        
+        print(f"\nAnalyzing {len(potential_conjunctions)} conjunctions with physics...")
+        
         results = []
-
-        for conj in tqdm(potential_conjunctions, desc="Analyzing"):
+        for conj in tqdm(potential_conjunctions, desc="Physics Analysis"):
             analysis = self.analyze_conjunction(conj['obj1'], conj['obj2'], conj['screening_epoch'])
             if analysis:
                 results.append(analysis)
-
+        
         if not results:
-            print("No significant collision risks after detailed analysis")
+            print("No significant collision risks found")
             return pd.DataFrame()
-
-        # Create DataFrame
+        
         df = pd.DataFrame(results)
-
-        # Additional validation - remove any with absurd miss distances
         df = df[df['miss_distance_km'] < 50]
-
+        
         if df.empty:
-            print("No valid collision risks identified")
+            print("No valid collision risks")
             return pd.DataFrame()
-
-        # If we have enough data and ML is not trained yet, train it
-        if self.enable_ml and not self.ml_predictor.is_trained and len(df) >= 20:
+        
+        print(f"\n✓ Phase 1 Complete: {len(df)} conjunctions analyzed with physics")
+        print(f"  Max Pc: {df['pc_maximum'].max():.2e}")
+        print(f"  Min miss distance: {df['miss_distance_km'].min():.2f} km")
+        
+        # Show physics-only distribution
+        emergency = (df['pc_maximum'] > 1e-4).sum()
+        high = ((df['pc_maximum'] > 1e-5) & (df['pc_maximum'] <= 1e-4)).sum()
+        medium = ((df['pc_maximum'] > 1e-7) & (df['pc_maximum'] <= 1e-5)).sum()
+        low = (df['pc_maximum'] <= 1e-7).sum()
+        
+        print(f"\nPhysics-Based Risk Distribution:")
+        if emergency > 0: print(f"  EMERGENCY: {emergency}")
+        if high > 0: print(f"  HIGH: {high}")
+        if medium > 0: print(f"  MEDIUM: {medium}")
+        print(f"  LOW: {low}")
+        
+        # PHASE 2: ML TRAINING (if enabled)
+        if self.enable_ml and self.ml_predictor:
             print("\n" + "="*70)
-            print("AUTO-TRAINING ML MODEL ON CURRENT DATA")
+            print("PHASE 2: ML MODEL TRAINING")
             print("="*70)
-            self.ml_predictor.train(df)
-
-            # Re-run predictions with trained model
-            print("\nRe-running predictions with trained model...")
-            for idx, row in df.iterrows():
-                ml_predictions = self.ml_predictor.predict_risk(row.to_dict())
-                for key, value in ml_predictions.items():
-                    df.at[idx, key] = value
-
-        # Sort by combined risk score if ML is available
+            
+            if not self.ml_predictor.is_trained:
+                # Train with ALL real data + synthetic augmentation
+                print(f"\nTraining ML model with {len(df)} real conjunctions...")
+                self.ml_predictor.train(
+                    real_data=df.copy(),
+                    min_synthetic_per_class=150  # Generate 150 synthetic per category
+                )
+            
+            # PHASE 3: ADD ML PREDICTIONS TO ALL RESULTS
+            if self.ml_predictor.is_trained:
+                print("\n" + "="*70)
+                print("PHASE 3: ADDING ML PREDICTIONS")
+                print("="*70)
+                
+                print(f"\nGenerating ML predictions for all {len(df)} conjunctions...")
+                
+                for idx, row in tqdm(df.iterrows(), total=len(df), desc="ML Predictions"):
+                    ml_predictions = self.ml_predictor.predict_risk(row.to_dict())
+                    for key, value in ml_predictions.items():
+                        df.at[idx, key] = value
+                
+                print("✓ ML predictions added to all results")
+                
+                # Show ML distribution
+                if 'ml_risk_category' in df.columns:
+                    ml_dist = df['ml_risk_category'].value_counts()
+                    print(f"\nML-Based Risk Distribution:")
+                    for cat in ['EMERGENCY', 'HIGH', 'MEDIUM', 'LOW']:
+                        count = ml_dist.get(cat, 0)
+                        if count > 0:
+                            print(f"  {cat}: {count}")
+                    
+                    # Agreement statistics
+                    if 'category_agreement' in df.columns:
+                        agreement = df['category_agreement'].sum()
+                        print(f"\nPhysics-ML Agreement: {agreement}/{len(df)} ({agreement/len(df)*100:.1f}%)")
+        
+        # Sort by combined risk if ML available
         if self.enable_ml and 'ml_collision_probability' in df.columns:
             df['combined_risk_score'] = (
-                0.7 * df['pc_maximum'] +
-                0.3 * df['ml_collision_probability']
+                0.6 * df['pc_maximum'] +
+                0.4 * df['ml_collision_probability']
             )
             df = df.sort_values('combined_risk_score', ascending=False)
         else:
             df = df.sort_values('pc_maximum', ascending=False)
-
-        # Generate enhanced report
+        
+        # Generate comprehensive report
         self._generate_enhanced_report(df)
-
-        # Save ML model if trained
+        
+        # Save model
         if self.enable_ml and self.ml_predictor.is_trained:
             model_filename = f'ml_risk_model_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pkl'
             self.ml_predictor.save_model(model_filename)
-            print(f"ML model saved to: {model_filename}")
-
-        return df
-    
+        
+        return df    
     def _generate_enhanced_report(self, df: pd.DataFrame) -> None:
-        """Generate enhanced assessment report with diagnostics"""
+        """Enhanced report with clear physics vs ML comparison"""
         
         print("\n" + "="*70)
-        print("ENHANCED CONJUNCTION ASSESSMENT REPORT")
+        print("COMPREHENSIVE COLLISION ASSESSMENT REPORT")
         print(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
         print("="*70)
         
-        # Realistic risk categories
+        # PHYSICS SUMMARY
+        print("\n" + "="*70)
+        print("PHYSICS-BASED ASSESSMENT (NASA/ESA Standards)")
+        print("="*70)
+        
         emergency = df['pc_maximum'] > 1e-4
         high = (df['pc_maximum'] > 1e-5) & (~emergency)
         medium = (df['pc_maximum'] > 1e-7) & (~emergency) & (~high)
         low = df['pc_maximum'] <= 1e-7
         
-        print("\nRISK SUMMARY (NASA/ESA Standards):")
         if emergency.sum() > 0:
-            print(f"   EMERGENCY (Pc > 1e-4): {emergency.sum()} - IMMEDIATE ACTION")
+            print(f"   🔴 EMERGENCY (Pc > 1e-4): {emergency.sum()} events")
         if high.sum() > 0:
-            print(f"   HIGH (Pc > 1e-5): {high.sum()}")
+            print(f"   🟠 HIGH (Pc > 1e-5): {high.sum()} events")
         if medium.sum() > 0:
-            print(f"   MEDIUM (Pc > 1e-7): {medium.sum()}")
-        print(f"   LOW (Pc ≤ 1e-7): {low.sum()}")
+            print(f"   🟡 MEDIUM (Pc > 1e-7): {medium.sum()} events")
+        print(f"   🟢 LOW (Pc ≤ 1e-7): {low.sum()} events")
         
-        print(f"\nENHANCED STATISTICS:")
-        print(f"   Total valid conjunctions: {len(df):,}")
-        print(f"   Max collision probability: {df['pc_maximum'].max():.2e}")
-        print(f"   Min miss distance: {df['miss_distance_km'].min():.3f} km")
-        print(f"   Mean relative velocity: {df['relative_velocity_ms'].mean():.1f} m/s")
-        print(f"   Mean position uncertainty: {df['position_uncertainty_km'].mean():.2f} km")
+        print(f"\nPhysics Statistics:")
+        print(f"   Max Collision Probability: {df['pc_maximum'].max():.2e}")
+        print(f"   Min Miss Distance: {df['miss_distance_km'].min():.3f} km")
+        print(f"   Mean Relative Velocity: {df['relative_velocity_ms'].mean():.1f} m/s")
         
-        # Enhanced diagnostics
-        if 'covariance_condition_number' in df.columns:
-            print(f"   Mean covariance condition number: {df['covariance_condition_number'].mean():.1f}")
-        if 'max_position_sigma_km' in df.columns:
-            print(f"   Max position sigma: {df['max_position_sigma_km'].max():.2f} km")
+        # ML SUMMARY (if available)
+        if 'ml_risk_category' in df.columns and df['ml_available'].any():
+            print("\n" + "="*70)
+            print("ML-BASED ASSESSMENT")
+            print("="*70)
+            
+            ml_categories = df['ml_risk_category'].value_counts()
+            for category in ['EMERGENCY', 'HIGH', 'MEDIUM', 'LOW']:
+                count = ml_categories.get(category, 0)
+                if count > 0:
+                    emoji = {'EMERGENCY': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}
+                    print(f"   {emoji[category]} {category}: {count} events")
+            
+            print(f"\nML Statistics:")
+            ml_probs = df[df['ml_available']]['ml_collision_probability']
+            if len(ml_probs) > 0:
+                print(f"   Max Collision Probability: {ml_probs.max():.2e}")
+                print(f"   Mean Confidence: {df[df['ml_available']]['ml_confidence'].mean():.1f}%")
+            
+            # COMPARISON
+            if 'category_agreement' in df.columns:
+                print("\n" + "="*70)
+                print("PHYSICS vs ML COMPARISON")
+                print("="*70)
+                
+                agreements = df['category_agreement'].sum()
+                total = len(df)
+                print(f"   Category Agreement: {agreements}/{total} ({agreements/total*100:.1f}%)")
+                
+                if agreements < total:
+                    disagreements = df[~df['category_agreement']]
+                    print(f"\n   Disagreement Cases: {len(disagreements)}")
+                    for _, row in disagreements.head(3).iterrows():
+                        print(f"      • {row['object1'][:25]} × {row['object2'][:25]}")
+                        print(f"        Physics: {row.get('physics_risk_category', 'N/A')} | "
+                            f"ML: {row.get('ml_risk_category', 'N/A')}")
         
-        print("\nVALIDATION CHECKS PASSED:")
-        print("   • Anisotropic covariance models implemented")
-        print("   • Encounter plane projections computed") 
-        print("   • Importance sampling Monte Carlo used")
-        print("   • Alfano analytical method implemented")
-        print("   • Enhanced diagnostics included")
-        
-        print(f"\nTOP COLLISION RISKS with Enhanced Analysis:")
-        print("-"*70)
+        # TOP RISKS - DETAILED COMPARISON
+        print("\n" + "="*70)
+        print("TOP 10 COLLISION RISKS - DETAILED COMPARISON")
+        print("="*70)
         
         for idx, row in df.head(min(10, len(df))).iterrows():
-            pc = row['pc_maximum']
+            print(f"\n{'='*70}")
+            print(f"#{idx+1}: {row['object1'][:30]} × {row['object2'][:30]}")
+            print(f"{'='*70}")
+            print(f"TCA: {row['tca'].strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            print(f"Miss Distance: {row['miss_distance_km']:.3f} km")
+            print(f"Relative Velocity: {row['relative_velocity_ms']:.0f} m/s")
+            print(f"Combined Radius: {row['combined_radius_m']:.1f} m")
             
-            if pc > 1e-4:
-                risk = "EMERGENCY"
-            elif pc > 1e-5:
-                risk = "HIGH"
-            elif pc > 1e-7:
-                risk = "MEDIUM"
+            # Physics assessment
+            pc_phys = row['pc_maximum']
+            if pc_phys > 1e-4:
+                phys_risk = "🔴 EMERGENCY"
+            elif pc_phys > 1e-5:
+                phys_risk = "🟠 HIGH"
+            elif pc_phys > 1e-7:
+                phys_risk = "🟡 MEDIUM"
             else:
-                risk = "LOW"
+                phys_risk = "🟢 LOW"
             
-            type_info = ""
-            if row['type1'] == 'DEBRIS' or row['type2'] == 'DEBRIS':
-                type_info = " [DEBRIS]"
-            elif row['type1'] == 'ROCKET_BODY' or row['type2'] == 'ROCKET_BODY':
-                type_info = " [ROCKET]"
+            print(f"\nPHYSICS ASSESSMENT:")
+            print(f"   Risk Level: {phys_risk}")
+            print(f"   Pc (Monte Carlo): {row['pc_monte_carlo']:.2e}")
+            print(f"   Pc (Alfano): {row['pc_alfano']:.2e}")
+            print(f"   Pc (Maximum): {pc_phys:.2e}")
             
-            print(f"\n{idx+1:2d}. {row['object1'][:30]} × {row['object2'][:30]}{type_info}")
-            print(f"    {risk} | Pc(MC): {row['pc_monte_carlo']:.2e} | Pc(Alfano): {row['pc_alfano']:.2e}")
-            print(f"    TCA: {row['tca'].strftime('%Y-%m-%d %H:%M:%S UTC')}")
-            print(f"    Miss: {row['miss_distance_km']:.3f} km | Vel: {row['relative_velocity_ms']:.0f} m/s")
-            print(f"    Combined radius: {row['combined_radius_m']:.1f} m")
-            print(f"    Position uncertainty (1-σ): {row['position_uncertainty_km']:.2f} km")
-            
-            # Enhanced diagnostics
-            if 'encounter_plane_miss_distance_km' in row:
-                print(f"    Encounter plane miss: {row['encounter_plane_miss_distance_km']:.3f} km")
-            if 'max_position_sigma_km' in row and 'min_position_sigma_km' in row:
-                print(f"    Max/Min sigma: {row['max_position_sigma_km']:.2f}/{row['min_position_sigma_km']:.2f} km")
-            if 'covariance_condition_number' in row:
-                cond_num = row['covariance_condition_number']
-                if np.isfinite(cond_num):
-                    print(f"    Covariance condition: {cond_num:.1f}")
-            if 'monte_carlo_samples_used' in row:
-                print(f"    MC samples used: {row['monte_carlo_samples_used']:,}")
+            # ML assessment
+            if row.get('ml_available', False):
+                ml_risk = row['ml_risk_category']
+                ml_emoji = {'EMERGENCY': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}
+                
+                print(f"\nML ASSESSMENT:")
+                print(f"   Risk Level: {ml_emoji.get(ml_risk, '⚪')} {ml_risk}")
+                print(f"   Pc (Predicted): {row['ml_collision_probability']:.2e}")
+                print(f"   95% CI: [{row['ml_collision_probability_lower']:.2e}, "
+                    f"{row['ml_collision_probability_upper']:.2e}]")
+                print(f"   Confidence: {row['ml_confidence']:.1f}%")
+                print(f"   Uncertainty: {row['ml_uncertainty']}")
+                
+                # Comparison
+                if row.get('category_agreement', True):
+                    print(f"\n   ✓ AGREES with physics assessment")
+                else:
+                    print(f"\n   ⚠ DISAGREES with physics assessment")
+                    ratio = row.get('probability_ratio', 0)
+                    if ratio > 1:
+                        print(f"   ML predicts {ratio:.1f}x HIGHER risk")
+                    else:
+                        print(f"   ML predicts {1/max(ratio, 0.001):.1f}x LOWER risk")
+            else:
+                print(f"\nML ASSESSMENT: Not available")
         
-        # Debug information
-        if self.debug_log:
-            print(f"\nDEBUG LOG: {len(self.debug_log)} suspicious cases detected:")
-            print("-"*50)
-            for i, debug in enumerate(self.debug_log[:5]):  # Show first 5
-                print(f"{i+1}. {debug['objects']}")
-                print(f"   Issue: {debug['issue']}")
-                print(f"   Relative velocity: {debug['rel_speed_ms']:.1f} m/s")
-                print(f"   Miss distance: {debug['miss_distance_km']:.3f} km")
-        if 'ml_risk_category' in df.columns and self.enable_ml:
-            print("\nML RISK PREDICTIONS:")
-            ml_categories = df['ml_risk_category'].value_counts()
-            for category, count in ml_categories.items():
-                if category != 'UNKNOWN':
-                    print(f"   {category}: {count}")
-    
-            if 'ml_confidence' in df.columns:
-                print(f"   Average ML Confidence: {df['ml_confidence'].mean():.1f}%")
-        # Add ML predictions if available
-        if 'ml_risk_category' in row and row.get('ml_available', False):
-            ml_cat = row['ml_risk_category']
-            ml_conf = row.get('ml_confidence', 0)
-            ml_prob = row.get('ml_collision_probability', 0)
-            print(f"    ML Risk: {ml_cat} (Confidence: {ml_conf:.1f}%) | ML Pc: {ml_prob:.2e}")
-        # Add this section after the existing ML predictions output
-        if 'ml_uncertainty' in row and row.get('ml_available', False):
-            ml_unc = row['ml_uncertainty']
-            ml_lower = row.get('ml_collision_probability_lower', 0)
-            ml_upper = row.get('ml_collision_probability_upper', 0)
-            ml_agree = row.get('ml_prediction_agreement', 0)
-            print(f"    ML Uncertainty: {ml_unc} | 95% CI: [{ml_lower:.2e}, {ml_upper:.2e}]")
-            print(f"    Tree Agreement: {ml_agree:.1%}")
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f'enhanced_conjunction_assessment.csv'
+        filename = f'conjunction_assessment_{timestamp}.csv'
         df.to_csv(filename, index=False)
-        
-        print(f"\nEnhanced results saved to: {filename}")
-
+        print(f"\n{'='*70}")
+        print(f"✓ Complete results saved to: {filename}")
+        print(f"{'='*70}")
 
 def load_tle_data(filepath):
     """Load TLE data from file with validation"""
