@@ -1,34 +1,22 @@
 """
-🌌 Unified Orbital Data Fetcher (SpaceTrack + NASA NEO via JPL SBDB - full refresh)
--------------------------------------------------------------------------------
-Enhancements:
-• Multi-threaded NeoWs (browse) fetching
-• Multi-threaded JPL SBDB orbital data fetching
-• Full daily refresh (no incremental merging)
-• Keeps identical SpaceTrack, compression, and structure
+🌌 SpaceTrack Data Fetcher
+--------------------------
+Fetches TLE and satellite data from Space-Track.org
 """
 
 import os
 import json
 import gzip
-import time
-import math
-import requests
 import pandas as pd
+import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
 
 # =============================================
 # CONFIGURATION
 # =============================================
-NASA_API_KEY = os.getenv("NASA_API_KEY")
 SPACETRACK_USER = os.getenv("SPACETRACK_USERNAME")
 SPACETRACK_PASS = os.getenv("SPACETRACK_PASSWORD")
-
-NEOWS_BROWSE_URL = "https://api.nasa.gov/neo/rest/v1/neo/browse"
-JPL_SBDB_URL = "https://ssd-api.jpl.nasa.gov/sbdb.api"
 
 SPACETRACK_LOGIN = "https://www.space-track.org/ajaxauth/login"
 SPACETRACK_TLE_URL = "https://www.space-track.org/basicspacedata/query/class/tle_latest/ORDINAL/1/format/json"
@@ -42,6 +30,8 @@ os.makedirs(OUTPUT_LATEST, exist_ok=True)
 os.makedirs(OUTPUT_RAW, exist_ok=True)
 
 timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+RAW_DIR = os.path.join(OUTPUT_RAW, timestamp)
+os.makedirs(RAW_DIR, exist_ok=True)
 
 # =============================================
 # FETCH FROM SPACETRACK
@@ -102,132 +92,25 @@ sat_info_json = {
 }
 
 # =============================================
-# FETCH NEO LIST FROM NeoWs (multi-threaded)
-# =============================================
-print("\n☄️ [NASA NeoWs] Enumerating NEOs (browse, threaded)...")
-
-def fetch_neows_page(page, api_key):
-    params = {"api_key": api_key, "page": page, "size": 20}
-    try:
-        r = requests.get(NEOWS_BROWSE_URL, params=params, timeout=25)
-        if r.status_code == 200:
-            return r.json().get("near_earth_objects", [])
-    except Exception:
-        return []
-    return []
-
-def get_neows_first_page(api_key, retries=3):
-    for attempt in range(retries):
-        try:
-            r = requests.get(NEOWS_BROWSE_URL, params={"api_key": api_key, "page": 0, "size": 20}, timeout=25)
-            if r.status_code == 200:
-                return r.json()
-        except Exception:
-            time.sleep(2 ** attempt)
-    return {}
-
-# --- Primary attempt with your API key ---
-first_page = get_neows_first_page(NASA_API_KEY or "DEMO_KEY")
-if not first_page or first_page.get("page", {}).get("total_elements", 0) == 0:
-    print("⚠️ NeoWs returned 0 elements — retrying with DEMO_KEY...")
-    first_page = get_neows_first_page("DEMO_KEY")
-
-total_neos = first_page.get("page", {}).get("total_elements", 0)
-total_pages = first_page.get("page", {}).get("total_pages", 1)
-print(f"   Total estimated NEOs: {total_neos} across {total_pages} pages")
-
-all_neows = first_page.get("near_earth_objects", [])
-if total_neos > 0:
-    MAX_PAGES = min(total_pages, 2000)  # safety cap
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(fetch_neows_page, i, NASA_API_KEY or "DEMO_KEY"): i for i in range(1, MAX_PAGES)}
-        for fut in tqdm(as_completed(futures), total=len(futures), desc="Enumerating NeoWs", ncols=90):
-            data = fut.result()
-            if data:
-                all_neows.extend(data)
-
-print(f"✅ [NASA NeoWs] Total NEO entries enumerated: {len(all_neows)}")
-
-# Extract unique IDs and mapping for SBDB lookup
-neows_by_id = {str(neo["id"]): neo for neo in all_neows if "id" in neo}
-unique_ids = list(neows_by_id.keys())
-
-# =============================================
-# FULL SBDB PARALLEL FETCH (no incremental)
-# =============================================
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "Trinetra-NEO-Fetcher/1.0"})
-MAX_THREADS = 20
-
-def fetch_sbdb_single(nid, retries=4):
-    params = {"des": nid, "cov": "0", "phys-par": "1"}
-    attempt = 0
-    while attempt < retries:
-        try:
-            r = SESSION.get(JPL_SBDB_URL, params=params, timeout=30)
-            if r.status_code == 200:
-                data = r.json()
-                orbit = data.get("orbit") or {}
-                phys = data.get("phys_par") or {}
-                moid = orbit.get("moid") or orbit.get("earth_moid") or orbit.get("e_moid")
-                return {"raw": data, "orbit": orbit, "phys": phys, "moid": moid}
-            elif r.status_code == 429:
-                time.sleep((2 ** attempt) * 2)
-                attempt += 1
-                continue
-            else:
-                return None
-        except Exception:
-            time.sleep((2 ** attempt) * 2)
-            attempt += 1
-    return None
-
-sbdb_results = {}
-with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
-    futures = {executor.submit(fetch_sbdb_single, nid): nid for nid in unique_ids}
-    for fut in tqdm(as_completed(futures), total=len(futures), desc="Fetching SBDB", ncols=90):
-        nid = futures[fut]
-        res = fut.result()
-        if res:
-            sbdb_results[nid] = res
-
-print(f"✅ [SBDB] Orbital/phys data fetched for {len(sbdb_results)} objects")
-
-# =============================================
-# PROCESS AND SAVE
-# =============================================
-processed_neos = []
-for nid, sb in sbdb_results.items():
-    neo_meta = neows_by_id.get(nid, {})
-    orbit = sb.get("orbit", {})
-    record = {
-        "id": nid,
-        "name": neo_meta.get("name") or neo_meta.get("designation"),
-        "is_hazardous": neo_meta.get("is_potentially_hazardous_asteroid", False),
-        "semi_major_axis_au": orbit.get("a"),
-        "eccentricity": orbit.get("e"),
-        "inclination_deg": orbit.get("i"),
-        "ascending_node_longitude_deg": orbit.get("om"),
-        "argument_of_perihelion_deg": orbit.get("w"),
-        "mean_anomaly_deg": orbit.get("ma"),
-        "epoch": orbit.get("epoch"),
-        "moid_au": sb.get("moid"),
-    }
-    processed_neos.append(record)
-
-# =============================================
 # SAVE COMPRESSED FILES
 # =============================================
 def save_gzip(data, path):
     with gzip.open(path, "wt", encoding="utf-8") as f:
         json.dump(data, f)
 
-save_gzip(tles_json, os.path.join(OUTPUT_LATEST, "tles.json.gz"))
-save_gzip(sat_info_json, os.path.join(OUTPUT_LATEST, "sat_info.json.gz"))
-save_gzip(processed_neos, os.path.join(OUTPUT_LATEST, "neos.json.gz"))
+def save_gzip_final(data, name):
+    save_gzip(data, os.path.join(OUTPUT_LATEST, name))
+    save_gzip(data, os.path.join(RAW_DIR, name))
 
-print("\n📊 FINAL SUMMARY")
+save_gzip_final(tles_json, "tles.json.gz")
+save_gzip_final(sat_info_json, "sat_info.json.gz")
+
+# =============================================
+# FINAL SUMMARY
+# =============================================
+print("\n📊 SPACETRACK SUMMARY")
 print("──────────────────────────────")
 print(f"🛰️ SpaceTrack Objects: {len(df_tle)}")
-print(f"☄️ NASA NEOs total: {len(processed_neos)}")
-print(f"✅ Full Parallel Fetch Complete at {timestamp}")
+for obj_type, count in type_counts.items():
+    print(f"   {obj_type}: {count}")
+print(f"✅ SpaceTrack Fetch Complete at {timestamp}")
