@@ -1,0 +1,8 @@
+Collision Assessment Summary Report
+Generated: 2025-11-07 18:03:47 UTC
+Total Conjunctions Analyzed: 3
+EMERGENCY Risks: 0
+HIGH Risks: 1
+MEDIUM Risks: 0
+Max Collision Probability: 1.89e-05
+Min Miss Distance: 3.658 km
