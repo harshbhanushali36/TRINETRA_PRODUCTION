@@ -33,7 +33,7 @@ function EmergencyEnroll() {
     setLoading(true);
 
     try {
-      const webAppUrl = 'https://script.google.com/macros/s/AKfycbxdPZ3RwtM1IFTKhnXZ92_k7S1Ee8s1Gb8Gd4RidRpsY0L9gRpuDF5zt0xgNB4snDmS/exec';
+      const webAppUrl = 'https://script.google.com/macros/s/AKfycbybgVY8ZZputTfgdplLdK1SBjm2tHAqnpx3OMtP6bcNt6K0hy-NIoGufWzpMKu5jiCL/exec';
 
       const response = await fetch(webAppUrl, {
         method: 'POST',
@@ -86,7 +86,7 @@ function EmergencyEnroll() {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
       <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
-        <Galaxy density={1.2} starSpeed={0.3} hueShift={220} speed={0.8} glowIntensity={0.4} saturation={0.3} mouseRepulsion={true} mouseInteraction={true} twinkleIntensity={0.5} rotationSpeed={0.05} repulsionStrength={2} transparent={false} style={{ width: '100%', height: '100%' }} />
+        <Galaxy density={0.8} starSpeed={0.2} hueShift={220} speed={0.6} glowIntensity={0.3} saturation={0.3} mouseRepulsion={false} mouseInteraction={false} twinkleIntensity={0.3} rotationSpeed={0.03} repulsionStrength={2} transparent={false} style={{ width: '100%', height: '100%' }} />
       </Box>
 
       <Box sx={{ position: 'absolute', top: 32, left: 32, zIndex: 10, display: 'flex', alignItems: 'center', gap: 1.5 }}>

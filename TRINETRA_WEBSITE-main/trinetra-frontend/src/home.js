@@ -41,16 +41,16 @@ function Home() {
         zIndex: 0
       }}>
         <Galaxy
-          density={1.2}
-          starSpeed={0.3}
+          density={0.8}
+          starSpeed={0.2}
           hueShift={220}
-          speed={0.8}
-          glowIntensity={0.4}
+          speed={0.6}
+          glowIntensity={0.3}
           saturation={0.3}
-          mouseRepulsion={true}
-          mouseInteraction={true}
-          twinkleIntensity={0.5}
-          rotationSpeed={0.05}
+          mouseRepulsion={false}
+          mouseInteraction={false}
+          twinkleIntensity={0.3}
+          rotationSpeed={0.03}
           repulsionStrength={2}
           transparent={false}
           style={{

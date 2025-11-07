@@ -38,7 +38,7 @@ uniform bool uTransparent;
 
 varying vec2 vUv;
 
-#define NUM_LAYER 4.0
+#define NUM_LAYER 2.0
 #define STAR_COLOR_CUTOFF 0.2
 #define MAT45 mat2(0.7071, -0.7071, 0.7071, 0.7071)
 #define PERIOD 3.0
@@ -87,8 +87,9 @@ vec3 StarLayer(vec2 uv) {
   vec2 gv = fract(uv) - 0.5; 
   vec2 id = floor(uv);
 
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
+  // Reduced star sampling for better performance
+  for (int y = -1; y <= 0; y++) {
+    for (int x = -1; x <= 0; x++) {
       vec2 offset = vec2(float(x), float(y));
       vec2 si = id + vec2(float(x), float(y));
       float seed = Hash21(si);
@@ -127,21 +128,24 @@ void main() {
   vec2 focalPx = uFocal * uResolution.xy;
   vec2 uv = (vUv * uResolution.xy - focalPx) / uResolution.y;
 
-  vec2 mouseNorm = uMouse - vec2(0.5);
-  
-  if (uAutoCenterRepulsion > 0.0) {
-    vec2 centerUV = vec2(0.0, 0.0);
-    float centerDist = length(uv - centerUV);
-    vec2 repulsion = normalize(uv - centerUV) * (uAutoCenterRepulsion / (centerDist + 0.1));
-    uv += repulsion * 0.05;
-  } else if (uMouseRepulsion) {
-    vec2 mousePosUV = (uMouse * uResolution.xy - focalPx) / uResolution.y;
-    float mouseDist = length(uv - mousePosUV);
-    vec2 repulsion = normalize(uv - mousePosUV) * (uRepulsionStrength / (mouseDist + 0.1));
-    uv += repulsion * 0.05 * uMouseActiveFactor;
-  } else {
-    vec2 mouseOffset = mouseNorm * 0.1 * uMouseActiveFactor;
-    uv += mouseOffset;
+  // Skip mouse calculations if mouse interaction is disabled (uMouseActiveFactor == 0.0)
+  if (uMouseActiveFactor > 0.001) {
+    vec2 mouseNorm = uMouse - vec2(0.5);
+    
+    if (uAutoCenterRepulsion > 0.0) {
+      vec2 centerUV = vec2(0.0, 0.0);
+      float centerDist = length(uv - centerUV);
+      vec2 repulsion = normalize(uv - centerUV) * (uAutoCenterRepulsion / (centerDist + 0.1));
+      uv += repulsion * 0.05;
+    } else if (uMouseRepulsion) {
+      vec2 mousePosUV = (uMouse * uResolution.xy - focalPx) / uResolution.y;
+      float mouseDist = length(uv - mousePosUV);
+      vec2 repulsion = normalize(uv - mousePosUV) * (uRepulsionStrength / (mouseDist + 0.1));
+      uv += repulsion * 0.05 * uMouseActiveFactor;
+    } else {
+      vec2 mouseOffset = mouseNorm * 0.1 * uMouseActiveFactor;
+      uv += mouseOffset;
+    }
   }
 
   float autoRotAngle = uTime * uRotationSpeed;
@@ -215,7 +219,9 @@ export default function Galaxy({
     let program;
 
     function resize() {
-      const scale = 1;
+      // Limit pixel ratio for better performance on high DPI displays
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+      const scale = pixelRatio;
       renderer.setSize(ctn.offsetWidth * scale, ctn.offsetHeight * scale);
       if (program) {
         program.uniforms.uResolution.value = new Color(
@@ -261,22 +267,41 @@ export default function Galaxy({
     const mesh = new Mesh(gl, { geometry, program });
     let animateId;
 
+    let lastTime = 0;
+    const targetFPS = 30; // Limit to 30 FPS for better performance
+    const frameInterval = 1000 / targetFPS;
+
     function update(t) {
       animateId = requestAnimationFrame(update);
+      
+      // Frame rate limiting
+      const elapsed = t - lastTime;
+      if (elapsed < frameInterval) {
+        return;
+      }
+      lastTime = t - (elapsed % frameInterval);
+
       if (!disableAnimation) {
         program.uniforms.uTime.value = t * 0.001;
         program.uniforms.uStarSpeed.value = (t * 0.001 * starSpeed) / 10.0;
       }
 
-      const lerpFactor = 0.05;
-      smoothMousePos.current.x += (targetMousePos.current.x - smoothMousePos.current.x) * lerpFactor;
-      smoothMousePos.current.y += (targetMousePos.current.y - smoothMousePos.current.y) * lerpFactor;
+      // Only calculate mouse smoothing if mouse interaction is enabled
+      if (mouseInteraction) {
+        const lerpFactor = 0.05;
+        smoothMousePos.current.x += (targetMousePos.current.x - smoothMousePos.current.x) * lerpFactor;
+        smoothMousePos.current.y += (targetMousePos.current.y - smoothMousePos.current.y) * lerpFactor;
+        smoothMouseActive.current += (targetMouseActive.current - smoothMouseActive.current) * lerpFactor;
 
-      smoothMouseActive.current += (targetMouseActive.current - smoothMouseActive.current) * lerpFactor;
-
-      program.uniforms.uMouse.value[0] = smoothMousePos.current.x;
-      program.uniforms.uMouse.value[1] = smoothMousePos.current.y;
-      program.uniforms.uMouseActiveFactor.value = smoothMouseActive.current;
+        program.uniforms.uMouse.value[0] = smoothMousePos.current.x;
+        program.uniforms.uMouse.value[1] = smoothMousePos.current.y;
+        program.uniforms.uMouseActiveFactor.value = smoothMouseActive.current;
+      } else {
+        // Set to default center position when disabled
+        program.uniforms.uMouse.value[0] = 0.5;
+        program.uniforms.uMouse.value[1] = 0.5;
+        program.uniforms.uMouseActiveFactor.value = 0.0;
+      }
 
       renderer.render({ scene: mesh });
     }
