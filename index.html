@@ -17,7 +17,699 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="styles.css">
+  <style>/* Import Iceland font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
+
+/* Apply Iceland font globally */
+* {
+  font-family: 'Iceland', sans-serif;
+  margin: 0; 
+  padding: 0; 
+  box-sizing: border-box; 
+}
+
+/* Ensure all MUI components use Iceland font */
+body {
+  font-family: 'Iceland', sans-serif;
+  background: linear-gradient(135deg, #0a0a2a 0%, #1a1a4a 100%);
+  overflow: hidden; 
+  height: 100vh;
+}
+
+/* Additional fallback for any missed elements */
+h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label, select {
+  font-family: 'Iceland', sans-serif;
+}
+
+#globe { 
+  width: 100%; 
+  height: 100%; 
+  position: absolute; 
+  background: radial-gradient(circle at center, #0a0a2a 0%, #050515 100%);
+}
+
+/* Glass-morphism panels matching Home.js - Consistent sizing */
+.panel { 
+  position: absolute;
+  background: rgba(26, 26, 74, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #fff;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(120, 219, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  transition: all 0.3s ease;
+  width: 320px; /* Consistent width for all panels */
+}
+
+.panel:hover {
+  border-color: rgba(120, 219, 255, 0.5);
+  box-shadow: 0 12px 40px rgba(120, 219, 255, 0.2);
+}
+
+#controls { 
+  top: 20px; 
+  right: 20px; 
+}
+
+#legend { 
+  bottom: 20px; 
+  left: 20px; 
+}
+
+/* FIXED: Info panel positioning - now positioned below controls */
+#info { 
+  top: 120px;  /* Positioned below controls */
+  right: 20px; 
+  max-height: calc(100vh - 160px); /* Prevent overflow */
+  overflow-y: auto;
+  display: none;
+  z-index: 20; /* Higher z-index to appear above other panels */
+}
+
+/* Custom scrollbar for info panel */
+#info::-webkit-scrollbar {
+  width: 6px;
+}
+
+#info::-webkit-scrollbar-track {
+  background: rgba(10, 10, 42, 0.4);
+  border-radius: 3px;
+}
+
+#info::-webkit-scrollbar-thumb {
+  background: rgba(120, 219, 255, 0.5);
+  border-radius: 3px;
+}
+
+#info::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 219, 255, 0.7);
+}
+
+/* Loading screen */
+#loading { 
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(26, 26, 74, 0.95);
+  backdrop-filter: blur(30px);
+  padding: 40px 60px;
+  border-radius: 20px;
+  border: 2px solid rgba(120, 219, 255, 0.5);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  text-align: center;
+}
+
+.spinner { 
+  border: 4px solid rgba(120, 219, 255, 0.2);
+  border-top: 4px solid #78dbff;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 20px rgba(120, 219, 255, 0.5);
+}
+
+@keyframes spin { 
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); } 
+}
+
+/* Enhanced loading text with glow effect */
+.loading-text {
+  color: #78dbff;
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(120, 219, 255, 0.7);
+  letter-spacing: 1px;
+}
+
+/* Headers */
+h3 { 
+  margin: 0 0 18px;
+  font-size: 20px; /* Slightly larger for Iceland font */
+  font-weight: 400; /* Iceland is a regular weight font */
+  color: #78dbff;
+  border-bottom: 2px solid rgba(120, 219, 255, 0.3);
+  padding-bottom: 12px;
+  letter-spacing: 1px; /* Add letter spacing for better readability */
+  text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
+}
+
+/* Stats */
+.stat { 
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0;
+  font-size: 16px; /* Slightly larger for Iceland font */
+  align-items: center;
+}
+
+.stat-label { 
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400; /* Regular weight for Iceland */
+}
+
+.stat-value { 
+  color: #78dbff;
+  font-weight: 400; /* Regular weight for Iceland */
+  font-family: 'Iceland', monospace;
+  font-size: 18px; /* Slightly larger */
+  text-shadow: 0 0 10px rgba(120, 219, 255, 0.5);
+  letter-spacing: 0.5px;
+}
+
+/* Legend items - using PNG icons instead of colored dots */
+.legend-item { 
+  display: flex;
+  align-items: center;
+  margin: 14px 0;
+  font-size: 16px; /* Slightly larger */
+  font-weight: 400; /* Regular weight */
+}
+
+.legend-icon { 
+  width: 24px;
+  height: 24px;
+  margin-right: 14px;
+  transition: all 0.3s ease;
+}
+
+.legend-icon:hover {
+  transform: scale(1.2);
+}
+
+/* Range slider - modern style */
+input[type="range"] { 
+  width: 100%;
+  height: 6px;
+  margin: 12px 0;
+  background: rgba(120, 219, 255, 0.2);
+  border-radius: 3px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #78dbff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+  transition: all 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 20px rgba(120, 219, 255, 1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #78dbff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(120, 219, 255, 0.8);
+  transition: all 0.2s;
+}
+
+label { 
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 16px; /* Slightly larger */
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400; /* Regular weight */
+}
+
+/* Close button */
+.close { 
+  float: right;
+  cursor: pointer;
+  font-size: 28px;
+  color: #ff77c6;
+  line-height: 1;
+  margin-top: -10px;
+  transition: all 0.2s;
+  font-weight: 400; /* Regular weight */
+}
+
+.close:hover { 
+  color: #ffa6dd;
+  transform: rotate(90deg);
+}
+
+/* Info title */
+.info-title { 
+  font-size: 22px; /* Slightly larger */
+  color: #78dbff;
+  margin-bottom: 18px;
+  font-weight: 400; /* Regular weight */
+  text-shadow: 0 0 15px rgba(120, 219, 255, 0.3);
+  letter-spacing: 1px;
+}
+
+/* Buttons - matching Home.js style */
+button { 
+  background: rgba(120, 219, 255, 0.2);
+  border: 1px solid #78dbff;
+  color: #78dbff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px; /* Slightly larger */
+  font-weight: 400; /* Regular weight */
+  margin-top: 12px;
+  transition: all 0.3s ease;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: 1px; /* Add letter spacing */
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover { 
+  background: rgba(120, 219, 255, 0.3);
+  box-shadow: 0 0 20px rgba(120, 219, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+button:hover::after {
+  left: 100%;
+}
+
+/* Search panel */
+#searchPanel { 
+  top: 20px;
+  left: 20px;
+}
+
+/* Search box - modern glass style */
+.search-box { 
+  width: 100%;
+  padding: 12px 18px;
+  background: rgba(10, 10, 42, 0.5);
+  border: 1px solid rgba(120, 219, 255, 0.3);
+  border-radius: 10px;
+  color: white;
+  font-size: 16px; /* Slightly larger */
+  margin-bottom: 18px;
+  transition: all 0.3s ease;
+  outline: none;
+  font-family: 'Iceland', sans-serif;
+}
+
+.search-box:focus { 
+  border-color: #78dbff;
+  box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+  background: rgba(10, 10, 42, 0.7);
+}
+
+.search-box::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Iceland', sans-serif;
+}
+
+/* Filter groups */
+.filter-group { 
+  margin: 18px 0;
+}
+
+.filter-title { 
+  font-size: 15px; /* Slightly larger */
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+  font-weight: 400; /* Regular weight */
+  text-transform: uppercase;
+  letter-spacing: 1px; /* Add letter spacing */
+}
+
+.filter-options { 
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Filter buttons - pill style */
+.filter-option { 
+  background: rgba(10, 10, 42, 0.5);
+  border: 1px solid rgba(120, 219, 255, 0.3);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 15px; /* Slightly larger */
+  font-weight: 400; /* Regular weight */
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-option:hover { 
+  background: rgba(20, 20, 52, 0.7);
+  border-color: rgba(120, 219, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.filter-option.active { 
+  background: linear-gradient(135deg, #78dbff 0%, #a6e8ff 100%);
+  color: #0a0a2a;
+  border-color: #78dbff;
+  font-weight: 400; /* Regular weight */
+  box-shadow: 0 0 16px rgba(120, 219, 255, 0.5);
+}
+
+.filter-option.active:hover { 
+  background: linear-gradient(135deg, #a6e8ff 0%, #c4f0ff 100%);
+  box-shadow: 0 0 24px rgba(120, 219, 255, 0.7);
+}
+
+/* Professional dropdown for orbit types */
+.dropdown {
+  width: 100%;
+  padding: 12px 18px;
+  background: rgba(10, 10, 42, 0.5);
+  border: 1px solid rgba(120, 219, 255, 0.3);
+  border-radius: 10px;
+  color: white;
+  font-size: 16px;
+  margin-bottom: 18px;
+  transition: all 0.3s ease;
+  outline: none;
+  font-family: 'Iceland', sans-serif;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2378dbff' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  background-size: 12px;
+}
+
+.dropdown:focus {
+  border-color: #78dbff;
+  box-shadow: 0 0 16px rgba(120, 219, 255, 0.4);
+  background-color: rgba(10, 10, 42, 0.7);
+}
+
+.dropdown option {
+  background: #1a1a4a;
+  color: white;
+}
+
+/* Search results */
+.search-results { 
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 12px;
+  border-top: 1px solid rgba(120, 219, 255, 0.2);
+  padding-top: 12px;
+}
+
+.search-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-results::-webkit-scrollbar-track {
+  background: rgba(10, 10, 42, 0.4);
+  border-radius: 3px;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+  background: rgba(120, 219, 255, 0.5);
+  border-radius: 3px;
+}
+
+/* Search result items */
+.search-result { 
+  padding: 10px 14px;
+  margin: 6px 0;
+  background: rgba(10, 10, 42, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px; /* Slightly larger */
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.search-result:hover { 
+  background: rgba(20, 20, 52, 0.6);
+  border-color: rgba(120, 219, 255, 0.3);
+  transform: translateX(4px);
+}
+
+.search-result.selected { 
+  background: rgba(120, 219, 255, 0.2);
+  border-left: 3px solid #78dbff;
+  padding-left: 12px;
+}
+
+/* Loading message styling */
+#loadingMsg {
+  color: rgba(120, 219, 255, 0.8);
+  text-align: center;
+  margin-top: 12px;
+  font-size: 15px; /* Slightly larger */
+  font-weight: 400; /* Regular weight */
+}
+
+/* Background stars effect */
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  background-color: white;
+  border-radius: 50%;
+  animation: twinkle 5s infinite ease-in-out;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px 20px;
+    border-radius: 12px;
+    width: calc(100% - 40px);
+    max-width: 320px;
+  }
+  
+  #searchPanel {
+    top: 10px;
+    left: 10px;
+  }
+  
+  #controls {
+    top: 10px;
+    right: 10px;
+  }
+  
+  #info {
+    top: 100px; /* Adjusted for mobile */
+    right: 10px;
+  }
+  
+  #legend {
+    bottom: 10px;
+    left: 10px;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Enhanced glow effects */
+.glow {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* Gemini AI Chat Panel - FIXED: Proper positioning */
+#geminiInfo {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    width: 380px;
+    max-width: calc(100vw - 400px); /* Prevent overflow on right side */
+    max-height: calc(100vh - 40px); /* Prevent overflow vertically */
+    background: rgba(10, 15, 35, 0.95);
+    border: 1px solid rgba(100, 150, 255, 0.4);
+    border-radius: 12px;
+    padding: 20px;
+    color: #fff;
+    font-family: 'Iceland', 'Courier New', monospace;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    display: none;
+    z-index: 1000;
+    overflow: hidden; /* Prevent content overflow */
+  }
+  
+  /* Ensure chat container doesn't cause overflow */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 60px); /* Account for header */
+    max-height: 400px;
+    overflow: hidden;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    max-height: 300px; /* Limit message area height */
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    #geminiInfo {
+      width: calc(100vw - 40px);
+      max-width: none;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+    }
+  }
+  
+  /* Ensure panels on left don't stack too high */
+  #searchPanel {
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(10, 10, 42, 0.3);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.chat-message {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  max-width: 85%;
+  word-wrap: break-word;
+}
+
+.user-message {
+  background: rgba(120, 219, 255, 0.2);
+  margin-left: auto;
+  border: 1px solid rgba(120, 219, 255, 0.3);
+}
+
+.ai-message {
+  background: rgba(26, 26, 74, 0.6);
+  margin-right: auto;
+  border: 1px solid rgba(120, 219, 255, 0.2);
+}
+
+.chat-input-container {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(10, 10, 42, 0.5);
+  border: 1px solid rgba(120, 219, 255, 0.3);
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  outline: none;
+}
+
+.chat-input:focus {
+  border-color: #78dbff;
+  box-shadow: 0 0 10px rgba(120, 219, 255, 0.3);
+}
+
+.send-button {
+  padding: 10px 16px;
+  background: rgba(120, 219, 255, 0.2);
+  border: 1px solid #78dbff;
+  color: #78dbff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.send-button:hover {
+  background: rgba(120, 219, 255, 0.3);
+  box-shadow: 0 0 12px rgba(120, 219, 255, 0.4);
+}
+
+.ai-loading {
+  text-align: center;
+  color: #78dbff;
+  padding: 10px;
+}
+
+.ai-error {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #ff4444;
+  color: #ff8888;
+}</style>
  
 </head>
 <body>
