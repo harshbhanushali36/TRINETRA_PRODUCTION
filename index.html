@@ -16,8 +16,8 @@
   <!-- Pako for gzip decompression -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>/* Import Iceland font from Google Fonts */
+  <style>
+    /* Import Iceland font from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Iceland&display=swap');
 
 /* Apply Iceland font globally */
@@ -27,7 +27,13 @@
   padding: 0; 
   box-sizing: border-box; 
 }
-
+#conjunctionsPanel {
+  top: 20px;
+  right: 150px; /* Position to left of legend */
+  width: 350px;
+  max-height: 500px;
+  display: none;
+}
 /* Ensure all MUI components use Iceland font */
 body {
   font-family: 'Iceland', sans-serif;
@@ -570,147 +576,175 @@ button:hover::after {
   text-shadow: 0 0 10px currentColor;
 }
 
-/* Gemini AI Chat Panel - FIXED: Proper positioning */
-#geminiInfo {
-    position: fixed;
-    left: 20px;
-    bottom: 20px;
-    width: 380px;
-    max-width: calc(100vw - 400px); /* Prevent overflow on right side */
-    max-height: calc(100vh - 40px); /* Prevent overflow vertically */
-    background: rgba(10, 15, 35, 0.95);
-    border: 1px solid rgba(100, 150, 255, 0.4);
-    border-radius: 12px;
-    padding: 20px;
-    color: #fff;
-    font-family: 'Iceland', 'Courier New', monospace;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    display: none;
-    z-index: 1000;
-    overflow: hidden; /* Prevent content overflow */
-  }
-  
-  /* Ensure chat container doesn't cause overflow */
-  .chat-container {
-    display: flex;
-    flex-direction: column;
-    height: calc(100% - 60px); /* Account for header */
-    max-height: 400px;
-    overflow: hidden;
-  }
-  
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
-    margin-bottom: 10px;
-    max-height: 300px; /* Limit message area height */
-  }
-  
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    #geminiInfo {
-      width: calc(100vw - 40px);
-      max-width: none;
-      left: 20px;
-      right: 20px;
-      bottom: 20px;
-    }
-  }
-  
-  /* Ensure panels on left don't stack too high */
-  #searchPanel {
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-  }
+/* Ensure panels on left don't stack too high */
+#searchPanel {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
 
+/* Conjunction Assessment Panel Styles */
+#conjunctionsPanel {
+  top: 20px;
+  right: 240px;
+  width: 350px;
+  max-height: 500px;
+  display: none;
+}
 
-.chat-container {
+.conjunctions-content {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-.chat-messages {
+.conjunctions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.conjunctions-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.conjunctions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
-  background: rgba(10, 10, 42, 0.3);
+  max-height: 350px;
+  padding-right: 5px;
+}
+
+.conjunctions-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conjunctions-list::-webkit-scrollbar-track {
+  background: rgba(10, 10, 42, 0.4);
+  border-radius: 3px;
+}
+
+.conjunctions-list::-webkit-scrollbar-thumb {
+  background: rgba(120, 219, 255, 0.5);
+  border-radius: 3px;
+}
+
+.conjunction-item {
+  background: rgba(10, 10, 42, 0.4);
   border-radius: 10px;
+  padding: 12px;
   margin-bottom: 10px;
-}
-
-.chat-message {
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  max-width: 85%;
-  word-wrap: break-word;
-}
-
-.user-message {
-  background: rgba(120, 219, 255, 0.2);
-  margin-left: auto;
-  border: 1px solid rgba(120, 219, 255, 0.3);
-}
-
-.ai-message {
-  background: rgba(26, 26, 74, 0.6);
-  margin-right: auto;
-  border: 1px solid rgba(120, 219, 255, 0.2);
-}
-
-.chat-input-container {
-  display: flex;
-  gap: 8px;
-}
-
-.chat-input {
-  flex: 1;
-  padding: 10px 14px;
-  background: rgba(10, 10, 42, 0.5);
-  border: 1px solid rgba(120, 219, 255, 0.3);
-  border-radius: 10px;
-  color: white;
-  font-size: 14px;
-  outline: none;
-}
-
-.chat-input:focus {
-  border-color: #78dbff;
-  box-shadow: 0 0 10px rgba(120, 219, 255, 0.3);
-}
-
-.send-button {
-  padding: 10px 16px;
-  background: rgba(120, 219, 255, 0.2);
-  border: 1px solid #78dbff;
-  color: #78dbff;
-  border-radius: 10px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 4px solid rgba(120, 219, 255, 0.5);
+}
+
+.conjunction-item:hover {
+  background: rgba(20, 20, 52, 0.6);
+  transform: translateX(4px);
+}
+
+.conjunction-item.high-risk {
+  border-left-color: #ff4444;
+}
+
+.conjunction-item.medium-risk {
+  border-left-color: #ffaa00;
+}
+
+.conjunction-item.low-risk {
+  border-left-color: #44ff44;
+}
+
+.conjunction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.conjunction-satellites {
+  font-weight: bold;
+  color: #78dbff;
+}
+
+.conjunction-risk {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.risk-high {
+  background: rgba(255, 68, 68, 0.2);
+  color: #ff8888;
+}
+
+.risk-medium {
+  background: rgba(255, 170, 0, 0.2);
+  color: #ffcc88;
+}
+
+.risk-low {
+  background: rgba(68, 255, 68, 0.2);
+  color: #88ff88;
+}
+
+.conjunction-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conjunction-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.detail-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.detail-value {
+  color: #78dbff;
+}
+
+.loading-conjunctions, .no-conjunctions {
+  text-align: center;
+  padding: 20px;
+  color: #78dbff;
+}
+
+.refresh-btn {
+  width: auto !important;
+  padding: 8px 12px !important;
+  margin-top: 0 !important;
+}
+
+#conjunctionsToggle {
+  position: absolute;
+  top: 20px;
+  right: 510px;
+  background: rgba(255, 100, 100, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 10;
   transition: all 0.3s ease;
 }
 
-.send-button:hover {
-  background: rgba(120, 219, 255, 0.3);
-  box-shadow: 0 0 12px rgba(120, 219, 255, 0.4);
+#conjunctionsToggle:hover {
+  background: rgba(255, 50, 50, 1);
+  transform: translateY(-2px);
 }
+  </style>
 
-.ai-loading {
-  text-align: center;
-  color: #78dbff;
-  padding: 10px;
-}
-
-.ai-error {
-  background: rgba(255, 0, 0, 0.1);
-  border: 1px solid #ff4444;
-  color: #ff8888;
-}</style>
- 
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 </head>
 <body>
 
@@ -784,60 +818,84 @@ button:hover::after {
     </div>
   </div>
 
+  <!-- Info Panel -->
   <div id="info" class="panel">
     <span class="close" onclick="closeInfo()">×</span>
     <div id="infoContent"></div>
   </div>
 
-  <div id="geminiInfo" class="panel">
-    <span class="close" onclick="closeGeminiInfo()">×</span>
-    <h3>🤖 AI Satellite Assistant</h3>
-    <div class="chat-container">
-      <div class="chat-messages" id="geminiChatMessages">
-        <div class="chat-message ai-message">
-          Click on any satellite to get AI-powered information about its mission, launch details, and purpose. You can also ask questions!
+  <!-- Conjunction Assessment Panel -->
+  <div id="conjunctionsPanel" class="panel">
+    <span class="close" onclick="closeConjunctionsPanel()">×</span>
+    <h3>🛰️ Conjunction Assessment</h3>
+    <div class="conjunctions-content">
+      <div class="conjunctions-header">
+        <div class="conjunctions-stats">
+          <div class="stat">
+            <span class="stat-label">Active Alerts:</span>
+            <span class="stat-value" id="activeAlerts">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">High Risk:</span>
+            <span class="stat-value" id="highRisk">0</span>
+          </div>
         </div>
+        <button id="refreshConjunctions" onclick="loadConjunctionData()" class="refresh-btn">🔄 Refresh</button>
       </div>
-      <div class="chat-input-container">
-        <input type="text" class="chat-input" id="geminiChatInput" placeholder="Ask about this satellite...">
-        <button class="send-button" onclick="sendChatMessage()">Send</button>
+      <div class="conjunctions-list" id="conjunctionsList">
+        <div class="loading-conjunctions">Loading conjunction data...</div>
       </div>
     </div>
   </div>
 
+  <!-- Toggle button for conjunctions panel -->
+  <div id="conjunctionsToggle" class="panel-toggle" onclick="toggleConjunctionsPanel()">
+    ⚡ Conjunctions
+  </div>
+
   <script>
   /****************************************************************
-   * TRINETRA - Enhanced Satellite Visualization
-   * FIXED: Sped-up objects and object count issues
+   * Enhanced TRINETRA with professional UI
+   * - PNG icons in legend instead of colored dots
+   * - Dropdown for orbit type filters
+   * - Consistent panel sizing
+   * - Dynamic PNG sizing (0.05 when following)
+   * - Conjunction assessment panel
    ****************************************************************/
 
   // --------- Config / URLs ----------
   const GITHUB_BASE_RAW = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/data/latest';
   const TLES_URL = `${GITHUB_BASE_RAW}/tles.json.gz`;
   const SATINFO_URL = `${GITHUB_BASE_RAW}/sat_info.json.gz`;
+  const CONJUNCTIONS_URL = `${GITHUB_BASE_RAW}/conjunction_assessment.csv`;
 
-  const PROPAGATION_UPDATE_MS = 5000;
-  const TRAIL_POINTS = 48;
-  const TRAIL_DURATION_MINUTES = 90;
-  const BATCH_SIZE = 500;
-  const BATCH_DELAY_MS = 50;
+  // animation/update intervals (ms)
+  const PROPAGATION_UPDATE_MS = 5000; // recompute accurate position every 5 seconds
+  const TRAIL_POINTS = 48;            // points when drawing orbit trails
+  const TRAIL_DURATION_MINUTES = 90;  // generate trail for next N minutes (approx)
+  const BATCH_SIZE = 500;             // progressive loading: satellites per batch
+  const BATCH_DELAY_MS = 50;          // delay between batches for smooth rendering
 
   // --------- Setup WorldWind ----------
   const wwd = new WorldWind.WorldWindow("globe");
   
+  // Enhanced globe layers for better aesthetics
   wwd.addLayer(new WorldWind.BMNGOneImageLayer());
   wwd.addLayer(new WorldWind.BMNGLandsatLayer());
   
+  // Enhanced atmosphere with better visuals
   const atmosphereLayer = new WorldWind.AtmosphereLayer();
-  atmosphereLayer.time = new Date();
+  atmosphereLayer.time = new Date(); // Set current time for realistic lighting
   wwd.addLayer(atmosphereLayer);
   
+  // Enhanced starfield
   const starFieldLayer = new WorldWind.StarFieldLayer();
-  starFieldLayer.altitude = 10000000;
+  starFieldLayer.altitude = 10000000; // Higher altitude for better visibility
   wwd.addLayer(starFieldLayer);
   
   wwd.addLayer(new WorldWind.CompassLayer());
   
+  // Store reference to ViewControlsLayer to enable/disable it
   let viewControlsLayer = new WorldWind.ViewControlsLayer(wwd);
   wwd.addLayer(viewControlsLayer);
 
@@ -846,11 +904,12 @@ button:hover::after {
   wwd.addLayer(objectLayer);
   wwd.addLayer(trailLayer);
 
+  // FIXED: Set Earth to be properly centered in the view
   wwd.navigator.lookAtLocation.latitude = 0;
   wwd.navigator.lookAtLocation.longitude = 0;
-  wwd.navigator.range = 40000000;
+  wwd.navigator.range = 40000000; // Better view of entire Earth
   wwd.navigator.heading = 0;
-  wwd.navigator.tilt = 0;
+  wwd.navigator.tilt = 0; // Direct overhead view initially
 
   // --------- Create background stars ----------
   function createStars() {
@@ -861,9 +920,14 @@ button:hover::after {
       const star = document.createElement('div');
       star.className = 'star';
       
+      // Random position
       const left = Math.random() * 100;
       const top = Math.random() * 100;
+      
+      // Random size
       const size = Math.random() * 2 + 1;
+      
+      // Random animation delay
       const delay = Math.random() * 5;
       
       star.style.left = `${left}%`;
@@ -877,17 +941,20 @@ button:hover::after {
   }
 
   // --------- Globals ----------
-  let sats = [];
-  let satInfoMap = {};
-  let selected = null;
-  let trailRenderable = null;
+  let sats = [];                 // internal list of satellites (objects with TLEs + placemark)
+  let satInfoMap = {};           // metadata map by NORAD ID
+  let selected = null;           // selected sat object
+  let trailRenderable = null;    // current trail renderable
   let visibleSats = new Set();
   let activeFilters = { type: 'all', orbit: 'all' };
   let isFollowing = false;
   let followSatelliteId = null;
+  let conjunctionData = [];      // conjunction assessment data
 
+  // UI counters
   const counts = { satellite: 0, rocket: 0, debris: 0, other: 0 };
 
+  // Orbit colors with enhanced aesthetics
   const ORBIT_COLORS = {
     'satellite': new WorldWind.Color(0, 1, 1, 0.9),
     'payload': new WorldWind.Color(0, 1, 1, 0.9),
@@ -897,6 +964,7 @@ button:hover::after {
     'unknown': new WorldWind.Color(0.8, 0.8, 0.8, 0.9)
   };
 
+  // Icon URLs from your GitHub repo
   const GITHUB_ICONS_BASE = 'https://raw.githubusercontent.com/harshbhanushali36/TRINETRA_PRODUCTION/main/icons';
   const ICON_URLS = {
     'satellite': `${GITHUB_ICONS_BASE}/satellite.png`,
@@ -907,6 +975,7 @@ button:hover::after {
     'unknown': `${GITHUB_ICONS_BASE}/satellite.png`
   };
 
+  // Get icon URL for a satellite type
   function getIconUrl(type) {
     const lowerType = (type || 'unknown').toLowerCase();
     
@@ -921,7 +990,7 @@ button:hover::after {
     return ICON_URLS.unknown;
   }
 
-  // --------- Gzip Decompression ----------
+  // --------- Gzip Decompression using Pako ----------
   async function decompressGzip(compressedData) {
     if (typeof pako === 'undefined') {
       throw new Error('Pako library not loaded. Please refresh the page.');
@@ -937,6 +1006,7 @@ button:hover::after {
     }
   }
 
+  // --------- Fetch and decompress gzip files ----------
   async function fetchData(url, progressText) {
     document.getElementById('loadingMsg').textContent = progressText || `Fetching ${url}`;
     
@@ -959,19 +1029,22 @@ button:hover::after {
   // --------- Satellite propagation helpers ----------
   function propPositionFromTLE(tle1, tle2, date){
     const satrec = satellite.twoline2satrec(tle1, tle2);
+    // propagate returns {position, velocity} in ECI (km)
     const p = satellite.propagate(satrec, date);
     if(!p || !p.position) return null;
     const gmst = satellite.gstime(date);
     const geo = satellite.eciToGeodetic(p.position, gmst);
     const lat = satellite.degreesLat(geo.latitude);
     const lon = satellite.degreesLong(geo.longitude);
-    const altKm = geo.height;
+    const altKm = geo.height; // km
     return { lat, lon, alt: altKm * 1000, rawPosECI: p.position };
   }
 
+  // Interpolate between two positions for smooth animation
   function interpolatePosition(pos1, pos2, t) {
     if (!pos1 || !pos2) return pos1 || pos2;
     
+    // Smooth interpolation factor (ease in-out)
     const smoothT = t * t * (3 - 2 * t);
     
     return {
@@ -981,6 +1054,7 @@ button:hover::after {
     };
   }
 
+  // generate an approximate orbit trail (future positions) — used on-demand
   function generateOrbitTrailPoints(tle1, tle2, minutes=TRAIL_DURATION_MINUTES, points=TRAIL_POINTS){
     const satrec = satellite.twoline2satrec(tle1, tle2);
     const now = new Date();
@@ -999,23 +1073,27 @@ button:hover::after {
     return pts;
   }
 
+  // add placemark for a satellite (and keep reference in sats array)
   function makePlacemarkForSat(s){
     const attrs = new WorldWind.PlacemarkAttributes(null);
     
+    // Use real PNG icons from GitHub repo
     attrs.imageSource = getIconUrl(s.type);
-    attrs.imageScale = 0.03;
+    attrs.imageScale = 0.03; // Normal size
     attrs.imageOffset = new WorldWind.Offset(WorldWind.OFFSET_FRACTION, 0.5, WorldWind.OFFSET_FRACTION, 0.5);
 
+    // initial placeholder position at (0,0,0) before propagation
     const pm = new WorldWind.Placemark(new WorldWind.Position(0,0,0), false, attrs);
     pm.userObject = s;
-    pm.pickDelegate = s;
+    pm.pickDelegate = s; // helps picking
     objectLayer.addRenderable(pm);
 
     return pm;
   }
 
+  // NEW: Update PNG size based on follow mode
   function updatePNGSize() {
-    const scale = isFollowing ? 0.05 : 0.03;
+    const scale = isFollowing ? 0.05 : 0.03; // Larger when following
     
     sats.forEach(sat => {
       if (sat.placemark && sat.placemark.attributes) {
@@ -1026,214 +1104,298 @@ button:hover::after {
     wwd.redraw();
   }
 
-  // --------- AI Chat ----------
-  let currentChatSatellite = null;
-  let chatHistory = [];
-
-  function addChatMessage(message, isUser = false) {
-    const chatMessages = document.getElementById('geminiChatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${isUser ? 'user-message' : 'ai-message'}`;
-    messageDiv.textContent = message;
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  // --------- Conjunction Assessment Functions ----------
+  function toggleConjunctionsPanel() {
+    const panel = document.getElementById('conjunctionsPanel');
+    const toggle = document.getElementById('conjunctionsToggle');
     
-    chatHistory.push({
-      role: isUser ? 'user' : 'assistant',
-      message: message,
-      timestamp: new Date()
+    if (panel.style.display === 'block') {
+      panel.style.display = 'none';
+      toggle.style.background = 'rgba(255, 100, 100, 0.9)';
+    } else {
+      panel.style.display = 'block';
+      toggle.style.background = 'rgba(255, 50, 50, 1)';
+      // Load data if not already loaded
+      if (conjunctionData.length === 0) {
+        loadConjunctionData();
+      }
+    }
+  }
+
+  function closeConjunctionsPanel() {
+    document.getElementById('conjunctionsPanel').style.display = 'none';
+    document.getElementById('conjunctionsToggle').style.background = 'rgba(255, 100, 100, 0.9)';
+  }
+
+  // Load conjunction data from GitHub CSV
+  async function loadConjunctionData() {
+    const conjunctionsList = document.getElementById('conjunctionsList');
+    const activeAlerts = document.getElementById('activeAlerts');
+    const highRisk = document.getElementById('highRisk');
+    
+    try {
+      conjunctionsList.innerHTML = '<div class="loading-conjunctions">Loading conjunction data...</div>';
+      
+      const response = await fetch(CONJUNCTIONS_URL);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch conjunction data: ${response.status}`);
+      }
+      
+      const csvText = await response.text();
+      conjunctionData = parseConjunctionCSV(csvText);
+      
+      // Update UI with conjunction data
+      updateConjunctionsUI();
+      
+    } catch (error) {
+      console.error('Error loading conjunction data:', error);
+      conjunctionsList.innerHTML = `
+        <div class="no-conjunctions" style="color:#ff6b6b;">
+          Error loading conjunction data<br>
+          <small>${error.message}</small>
+        </div>
+      `;
+      // Fallback to sample data for demonstration
+    }
+  }
+
+  // Parse CSV data
+  // Parse CSV data
+function parseConjunctionCSV(csvText) {
+  const lines = csvText.trim().split('\n');
+  const conjunctions = [];
+  
+  if (lines.length === 0) return conjunctions;
+  
+  // Parse header row to find column indices
+  const headers = parseCSVLine(lines[0]);
+  
+  // Find column indices for the specific column names
+  const missDistanceIndex = headers.findIndex(header => 
+    header.toLowerCase().includes('miss_distance') || header.toLowerCase().includes('miss distance')
+  );
+  
+  const probabilityIndex = headers.findIndex(header => 
+    header.toLowerCase().includes('pc_maximum') || header.toLowerCase().includes('probability') || header.toLowerCase().includes('pc')
+  );
+  
+  const sat1Index = headers.findIndex(header => 
+    header.toLowerCase().includes('satellite1') || header.toLowerCase().includes('object1') || header.toLowerCase().includes('name1')
+  );
+  
+  const sat2Index = headers.findIndex(header => 
+    header.toLowerCase().includes('satellite2') || header.toLowerCase().includes('object2') || header.toLowerCase().includes('name2')
+  );
+  
+  const timeIndex = headers.findIndex(header => 
+    header.toLowerCase().includes('time') || header.toLowerCase().includes('date') || header.toLowerCase().includes('tca')
+  );
+  
+  console.log('Found columns:', { missDistanceIndex, probabilityIndex, sat1Index, sat2Index, timeIndex });
+  
+  // Process data rows
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const columns = parseCSVLine(line);
+    
+    // Extract data using the found column indices
+    const satellite1 = sat1Index >= 0 && columns[sat1Index] ? columns[sat1Index].trim() : 'Unknown';
+    const satellite2 = sat2Index >= 0 && columns[sat2Index] ? columns[sat2Index].trim() : 'Unknown';
+    
+    let missDistance = 0;
+    if (missDistanceIndex >= 0 && columns[missDistanceIndex]) {
+      missDistance = parseFloat(columns[missDistanceIndex]);
+      if (isNaN(missDistance)) missDistance = 0;
+    }
+    
+    let probability = 0;
+    if (probabilityIndex >= 0 && columns[probabilityIndex]) {
+      probability = parseFloat(columns[probabilityIndex]);
+      if (isNaN(probability)) probability = 0;
+    }
+    
+    const timeOfClosestApproach = timeIndex >= 0 && columns[timeIndex] ? columns[timeIndex].trim() : 'Unknown';
+    
+    if (satellite1 !== 'Unknown' && satellite2 !== 'Unknown') {
+      const conjunction = {
+        satellite1: satellite1,
+        satellite2: satellite2,
+        missDistance: missDistance,
+        probability: probability,
+        timeOfClosestApproach: timeOfClosestApproach,
+        riskLevel: calculateRiskLevel(missDistance, probability)
+      };
+      
+      console.log('Parsed conjunction:', conjunction);
+      conjunctions.push(conjunction);
+    }
+  }
+  
+  // Sort by risk (highest first)
+  conjunctions.sort((a, b) => {
+    if (a.riskLevel === 'high' && b.riskLevel !== 'high') return -1;
+    if (a.riskLevel !== 'high' && b.riskLevel === 'high') return 1;
+    if (a.riskLevel === 'medium' && b.riskLevel === 'low') return -1;
+    if (a.riskLevel === 'low' && b.riskLevel === 'medium') return 1;
+    
+    // If same risk level, sort by probability (highest first)
+    return b.probability - a.probability;
+  });
+  
+  return conjunctions;
+}
+
+// Helper function to parse CSV line with quoted fields
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current);
+  return result.map(col => col.trim().replace(/^"|"$/g, ''));
+}
+
+  // Calculate risk level based on miss distance and probability
+  function calculateRiskLevel(missDistance, probability) {
+    if (missDistance < 1 && probability > 0.01) return 'high';
+    if (missDistance < 5 && probability > 0.001) return 'medium';
+    return 'low';
+  }
+
+  // Update the UI with conjunction data
+  function updateConjunctionsUI() {
+    const conjunctionsList = document.getElementById('conjunctionsList');
+    const activeAlerts = document.getElementById('activeAlerts');
+    const highRisk = document.getElementById('highRisk');
+    
+    if (conjunctionData.length === 0) {
+      conjunctionsList.innerHTML = '<div class="no-conjunctions">No conjunction alerts at this time</div>';
+      activeAlerts.textContent = '0';
+      highRisk.textContent = '0';
+      return;
+    }
+    
+    // Count high risk conjunctions
+    const highRiskCount = conjunctionData.filter(c => c.riskLevel === 'high').length;
+    
+    // Update stats
+    activeAlerts.textContent = conjunctionData.length;
+    highRisk.textContent = highRiskCount;
+    
+    // Create conjunction items
+    conjunctionsList.innerHTML = '';
+    conjunctionData.forEach((conjunction, index) => {
+      const item = document.createElement('div');
+      item.className = `conjunction-item ${conjunction.riskLevel}-risk`;
+      
+      const riskClass = `risk-${conjunction.riskLevel}`;
+      
+      item.innerHTML = `
+        <div class="conjunction-header">
+          <div class="conjunction-satellites">${conjunction.satellite1} & ${conjunction.satellite2}</div>
+          <div class="conjunction-risk ${riskClass}">${conjunction.riskLevel.toUpperCase()}</div>
+        </div>
+        <div class="conjunction-details">
+          <div class="conjunction-detail">
+            <span class="detail-label">Miss Distance:</span>
+            <span class="detail-value">${conjunction.missDistance.toFixed(2)} km</span>
+          </div>
+          <div class="conjunction-detail">
+            <span class="detail-label">Probability:</span>
+            <span class="detail-value">${(conjunction.probability * 100).toFixed(4)}%</span>
+          </div>
+          <div class="conjunction-detail">
+            <span class="detail-label">Time:</span>
+            <span class="detail-value">${formatTime(conjunction.timeOfClosestApproach)}</span>
+          </div>
+        </div>
+      `;
+      
+      // Add click handler to focus on these satellites
+      item.addEventListener('click', () => {
+        focusOnConjunction(conjunction);
+      });
+      
+      conjunctionsList.appendChild(item);
     });
   }
 
-  async function sendChatMessage() {
-    const input = document.getElementById('geminiChatInput');
-    const message = input.value.trim();
-    
-    if (!message || !currentChatSatellite) return;
-    
-    input.value = '';
-    addChatMessage(message, true);
-    
-    const chatMessages = document.getElementById('geminiChatMessages');
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'ai-loading';
-    loadingDiv.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:5px auto;"></div>';
-    chatMessages.appendChild(loadingDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  // Format time for display
+  function formatTime(timeString) {
+    if (timeString === 'Unknown') return timeString;
     
     try {
-      const response = await askGroqDirectly(currentChatSatellite, message);
-      
-      if (chatMessages.contains(loadingDiv)) {
-        chatMessages.removeChild(loadingDiv);
-      }
-      
-      addChatMessage(response);
-      
-    } catch (error) {
-      console.error("Error in sendChatMessage:", error);
-      
-      if (chatMessages.contains(loadingDiv)) {
-        chatMessages.removeChild(loadingDiv);
-      }
-      
-      try {
-        const fallbackResponse = await simulateGeminiAPI(currentChatSatellite, message);
-        addChatMessage(fallbackResponse);
-      } catch (fallbackError) {
-        addChatMessage(`I apologize, but I'm having trouble accessing satellite information right now. Please try again in a moment.`);
-      }
+      const date = new Date(timeString);
+      return date.toLocaleString();
+    } catch (e) {
+      return timeString;
     }
   }
 
-  async function askGroqDirectly(satellite, userMessage) {
-    const API_KEY = "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";
+  // Focus on a conjunction (find and select the satellites)
+  function focusOnConjunction(conjunction) {
+    // Try to find both satellites
+    const sat1 = sats.find(s => s.name === conjunction.satellite1);
+    const sat2 = sats.find(s => s.name === conjunction.satellite2);
+    
+    if (sat1) {
+      selectSatellite(sat1);
+    } else if (sat2) {
+      selectSatellite(sat2);
+    } else {
+      alert(`Could not find satellites ${conjunction.satellite1} or ${conjunction.satellite2} in the current dataset.`);
+    }
+  }
 
-    try {
-      const meta = satInfoMap[String(satellite.id)] || {};
-      const altitude = satellite.position?.alt ? Math.round(satellite.position.alt / 1000) : 'Unknown';
-      const orbitType = getOrbitType(altitude === 'Unknown' ? 0 : altitude).toUpperCase();
-
-      const satContext = `
-SATELLITE INFORMATION:
-- Name: ${satellite.name}
-- Type: ${meta.object_type || satellite.type || "Unknown"}
-- NORAD ID: ${satellite.id}
-- Orbit: ${orbitType}
-- Altitude: ${altitude} km
-- Launch Date: ${meta.launch_date || "Unknown"}
-- Country: ${meta.country || "Unknown"}
-- Period: ${meta.period ? `${meta.period.toFixed(1)} minutes` : "Unknown"}
-
-USER QUESTION: ${userMessage}
-`.trim();
-
-      const requestBody = {
-        model: "llama-3.1-8b-instant",
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a satellite expert. Provide accurate, helpful information about satellites. Be concise but informative." 
-          },
-          { 
-            role: "user", 
-            content: satContext
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000
-      };
-
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Groq API error:", errorText);
-        throw new Error(`API error: ${response.status}`);
+  // Load sample data if real data fails
+  function loadSampleConjunctionData() {
+    conjunctionData = [
+      {
+        satellite1: 'STARLINK-2560',
+        satellite2: 'COSMOS 2251 DEB',
+        missDistance: 0.8,
+        probability: 0.015,
+        timeOfClosestApproach: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        riskLevel: 'high'
+      },
+      {
+        satellite1: 'IRIDIUM 33',
+        satellite2: 'METEOR 2-5 DEB',
+        missDistance: 3.2,
+        probability: 0.002,
+        timeOfClosestApproach: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+        riskLevel: 'medium'
+      },
+      {
+        satellite1: 'GPS BIIF-1',
+        satellite2: 'SL-8 DEB',
+        missDistance: 12.5,
+        probability: 0.0001,
+        timeOfClosestApproach: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        riskLevel: 'low'
       }
-
-      const data = await response.json();
-      
-      let answer = "";
-      
-      if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-        answer = data.choices[0].message.content.trim();
-      } else if (data.choices && data.choices[0] && data.choices[0].text) {
-        answer = data.choices[0].text.trim();
-      } else {
-        answer = `Based on the available data, ${satellite.name} is a ${meta.object_type || satellite.type || 'satellite'} in ${orbitType} orbit. For specific information about "${userMessage}", additional details would be needed from specialized satellite databases.`;
-      }
-      
-      if (!answer || answer.length < 10) {
-        throw new Error("Response too short or empty");
-      }
-      
-      return answer;
-
-    } catch (error) {
-      console.error("Groq API call failed:", error);
-      
-      const meta = satInfoMap[String(satellite.id)] || {};
-      const altitude = satellite.position?.alt ? Math.round(satellite.position.alt / 1000) : 'Unknown';
-      const orbitType = getOrbitType(altitude === 'Unknown' ? 0 : altitude).toUpperCase();
-      
-      return `I'm currently unable to access detailed satellite information. However, here's what I know:\n\n${satellite.name} is a ${meta.object_type || satellite.type || 'satellite'} in ${orbitType} orbit at ${altitude} km altitude. For comprehensive details about "${userMessage}", please check space-track.org or celestrak.org.`;
-    }
+    ];
+    
+    updateConjunctionsUI();
   }
 
-  async function simulateGeminiAPI(satellite, userMessage) {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const meta = satInfoMap[String(satellite.id)] || {};
-    const altitude = (satellite.position && satellite.position.alt) ? Math.round(satellite.position.alt/1000) : 'Unknown';
-    const orbitType = getOrbitType(altitude === 'Unknown' ? 0 : altitude).toUpperCase();
-    
-    const question = userMessage.toLowerCase();
-    
-    if (question.includes('mission') || question.includes('purpose')) {
-      return `${satellite.name} appears to be a ${meta.object_type || satellite.type || 'satellite'} operating in ${orbitType} orbit. Based on its orbital characteristics, it's likely used for ${getMissionType(orbitType, satellite.type)}. The satellite was launched ${meta.launch_date ? 'around ' + meta.launch_date : 'at an unknown date'} and is operated by ${meta.country || 'an unknown entity'}.`;
-    } 
-    else if (question.includes('orbit') || question.includes('altitude')) {
-      return `${satellite.name} is currently in a ${orbitType} orbit at approximately ${altitude} km altitude. ${orbitType === 'LEO' ? 'Low Earth Orbit satellites typically complete an orbit every 90-120 minutes and are used for Earth observation, communications, and scientific research.' : orbitType === 'GEO' ? 'Geostationary Orbit satellites remain fixed over one point on Earth and are commonly used for weather monitoring and communications.' : 'This orbit provides a balance between coverage area and signal latency.'}`;
-    }
-    else if (question.includes('launch') || question.includes('date')) {
-      return `${satellite.name} was ${meta.launch_date ? 'launched around ' + meta.launch_date : 'launched at an unknown date'}. ${meta.country ? 'It is operated by ' + meta.country + '.' : ''}`;
-    }
-    else {
-      return `${satellite.name} is a ${meta.object_type || satellite.type || 'satellite'} in ${orbitType} orbit. It orbits at ${altitude} km altitude and was ${meta.launch_date ? 'launched around ' + meta.launch_date : 'launched at an unknown date'}. ${meta.country ? 'It is operated by ' + meta.country + '.' : ''} This satellite is primarily used for ${getMissionType(orbitType, satellite.type)}.`;
-    }
-  }
-
-  function getMissionType(orbitType, satelliteType) {
-    const type = (satelliteType || '').toLowerCase();
-    
-    if (type.includes('debris')) return 'no active mission (space debris)';
-    if (type.includes('rocket')) return 'launch vehicle component';
-    
-    switch(orbitType) {
-      case 'LEO': return 'Earth observation, scientific research, or communications';
-      case 'MEO': return 'navigation (like GPS) or communications';
-      case 'GEO': return 'weather monitoring, communications, or broadcasting';
-      case 'HEO': return 'specialized communications or scientific missions';
-      default: return 'various space applications';
-    }
-  }
-
-  function initializeChat(satellite) {
-    currentChatSatellite = satellite;
-    chatHistory = [];
-    
-    const chatMessages = document.getElementById('geminiChatMessages');
-    chatMessages.innerHTML = '';
-    
-    addChatMessage(`Hello! I can provide information about ${satellite.name}. Ask me anything about its mission, technical specifications, or orbital characteristics.`);
-  }
-
-  function closeGeminiInfo() {
-    document.getElementById('geminiInfo').style.display = 'none';
-    currentChatSatellite = null;
-    chatHistory = [];
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    const chatInput = document.getElementById('geminiChatInput');
-    if (chatInput) {
-      chatInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          sendChatMessage();
-        }
-      });
-    }
-  });
-
-  // --------- Info Panel ----------
+  // show info panel for a satellite object
   function showSatelliteInfo(s){
     const meta = satInfoMap[String(s.id)] || {};
     const altitude = (s.position && s.position.alt) ? Math.round(s.position.alt/1000) : 'N/A';
@@ -1250,12 +1412,14 @@ USER QUESTION: ${userMessage}
       <div style="margin-top:10px; font-size:15px; color:#bde;">Launch: ${meta.launch_date || 'N/A'} | Country: ${meta.country || 'N/A'}</div>
     `;
     
+    // Position info panel below controls
     const controlsPanel = document.getElementById('controls');
     const controlsRect = controlsPanel.getBoundingClientRect();
     const infoPanel = document.getElementById('info');
     infoPanel.style.top = (controlsRect.bottom + 20) + 'px';
     infoPanel.style.display = 'block';
     
+    // FIXED: Update the single follow button text
     document.getElementById('followButton').textContent = isFollowing && followSatelliteId===s.id ? 'Stop Following' : 'Follow Satellite';
   }
 
@@ -1263,6 +1427,7 @@ USER QUESTION: ${userMessage}
     document.getElementById('info').style.display = 'none';
     selected = null;
     
+    // FIXED: Always keep view controls enabled for scrolling
     viewControlsLayer.enabled = true;
     isFollowing = false;
     followSatelliteId = null;
@@ -1272,7 +1437,10 @@ USER QUESTION: ${userMessage}
       trailRenderable = null;
     }
     
+    // Update PNG size when not following
     updatePNGSize();
+    
+    // FIXED: Reset follow button text
     document.getElementById('followButton').textContent = 'Follow Satellite';
   }
 
@@ -1280,6 +1448,8 @@ USER QUESTION: ${userMessage}
     if(!selected) return;
     isFollowing = !isFollowing;
     
+    // FIXED: Always keep view controls enabled for scrolling
+    // We don't disable view controls anymore to allow scrolling/zooming
     viewControlsLayer.enabled = true;
     
     if(isFollowing){ 
@@ -1292,36 +1462,38 @@ USER QUESTION: ${userMessage}
     }
     
     document.getElementById('followButton').textContent = isFollowing ? 'Stop Following' : 'Follow Satellite';
+    
+    // Update PNG size based on follow mode
     updatePNGSize();
   }
 
-  function getOrbitType(alt){ 
-    if(alt < 2000) return 'leo'; 
-    if(alt < 35786) return 'meo'; 
-    if(alt >= 35786 && alt < 36000) return 'geo'; 
-    return 'heo'; 
-  }
+  function getOrbitType(alt){ if(alt < 2000) return 'leo'; if(alt < 35786) return 'meo'; if(alt >= 35786 && alt < 36000) return 'geo'; return 'heo'; }
 
-  // FIXED: Improved validation to catch truly invalid TLEs while keeping valid satellites
+  // FIXED: Filter out sped-up objects by checking for valid TLE data
   function isValidTLE(tle1, tle2) {
     if (!tle1 || !tle2) return false;
     
+    // Check if TLE lines have proper format and reasonable values
     const tle1Parts = tle1.trim().split(/\s+/);
     const tle2Parts = tle2.trim().split(/\s+/);
     
+    // Should have enough parts
     if (tle1Parts.length < 8 || tle2Parts.length < 7) return false;
     
     try {
+      // Try to create satellite record to validate
       const satrec = satellite.twoline2satrec(tle1, tle2);
       
+      // Check for reasonable inclination (between 0 and 180 degrees)
       const inclination = satrec.inclo * (180 / Math.PI);
-      if (isNaN(inclination) || inclination < 0 || inclination > 180) return false;
+      if (inclination < 0 || inclination > 180) return false;
       
-      if (isNaN(satrec.ecco) || satrec.ecco < 0 || satrec.ecco >= 0.99) return false;
+      // Check for reasonable eccentricity (between 0 and 1)
+      if (satrec.ecco < 0 || satrec.ecco >= 1) return false;
       
-      if (isNaN(satrec.no) || satrec.no < 0.01 || satrec.no > 20) return false;
-      
-      if (!isFinite(satrec.inclo) || !isFinite(satrec.ecco) || !isFinite(satrec.no)) return false;
+      // Check for reasonable mean motion (orbits per day)
+      // Most satellites are between 1-16 orbits per day
+      if (satrec.no < 0.06 || satrec.no > 17) return false; // 0.06 ≈ 1 orbit per day, 17 ≈ 16.6 orbits per day
       
       return true;
     } catch (e) {
@@ -1329,42 +1501,43 @@ USER QUESTION: ${userMessage}
     }
   }
 
-  // --------- Main Loading ----------
+  // ---------- Main loading + initialization ----------
   (async function main(){
     try{
+      // Create background stars
       createStars();
       
+      // Load gzip compressed TLE + info files
       document.getElementById('loadingMsg').textContent = 'Fetching satellite data...';
       const [tlesArr, infoObj] = await Promise.all([
         fetchData(TLES_URL, 'Downloading TLE data (gzip)...'),
         fetchData(SATINFO_URL, 'Downloading satellite info (gzip)...')
       ]);
 
+      // store metadata map
       satInfoMap = infoObj || {};
 
+      // convert incoming tlesArr into internal sats list
+      // expected tlesArr: [{ id: <number>, name: <string>, tle1: <str>, tle2: <str> }, ...]
       document.getElementById('loadingMsg').textContent = `Preparing ${tlesArr.length} TLEs...`;
       counts.satellite = counts.rocket = counts.debris = counts.other = 0;
 
-      let filteredCount = 0;
+      // FIXED: Filter out invalid TLEs and sped-up objects
       const validTLEs = tlesArr.filter(entry => {
-        const isValid = isValidTLE(entry.tle1 || entry.TLE_LINE1, entry.tle2 || entry.TLE_LINE2);
-        if (!isValid) {
-          filteredCount++;
-          if (filteredCount <= 10) {
-            console.warn('Filtered invalid TLE:', entry.name || entry.id);
-          }
-        }
-        return isValid;
+        return isValidTLE(entry.tle1 || entry.TLE_LINE1, entry.tle2 || entry.TLE_LINE2);
       });
 
       document.getElementById('loadingMsg').textContent = `Filtered ${tlesArr.length - validTLEs.length} invalid TLEs, preparing ${validTLEs.length} satellites...`;
 
+      // create placemarks
       sats = validTLEs.map((entry, idx) => {
         const id = entry.id || (`_${idx}`);
         const name = entry.name || `object_${id}`;
+        // pick a crude type using metadata map if available
         const meta = satInfoMap[String(id)] || {};
         const type = (meta.object_type || '').toString() || (entry.type || 'UNKNOWN');
 
+        // create sat object
         const satObj = {
           id: id,
           name: name,
@@ -1372,35 +1545,41 @@ USER QUESTION: ${userMessage}
           tle2: String(entry.tle2 || entry.TLE_LINE2 || ''),
           type: String(type),
           orbit_period_minutes: meta.period || null,
-          position: null,
-          nextPosition: null,
+          position: null, // {lat,lon,alt}
+          nextPosition: null, // for smooth interpolation
           placemark: null,
           lastPropagated: null,
-          satrec: null,
+          satrec: null, // store satellite record for faster propagation
           idx: Math.random() * 1000,
-          isValid: true
+          isValid: true // Mark as valid
         };
 
+        // update counts
         const t = (satObj.type||'').toLowerCase();
         if(t.includes('satellite') || t.includes('payload')) counts.satellite++;
         else if(t.includes('rocket')) counts.rocket++;
         else if(t.includes('debris')) counts.debris++;
         else counts.other++;
 
+        // create placemark & attach
         satObj.placemark = makePlacemarkForSat(satObj);
         return satObj;
       });
 
+      // update UI counters
       document.getElementById('satCount').textContent = counts.satellite;
       document.getElementById('rocketCount').textContent = counts.rocket;
       document.getElementById('debrisCount').textContent = counts.debris;
       document.getElementById('totalCount').textContent = sats.length;
 
+      // Progressive loading: load and render in batches
       document.getElementById('loadingMsg').textContent = 'Loading satellites progressively...';
       await loadSatellitesInBatches();
 
+      // hide loading
       document.getElementById('loading').style.display = 'none';
 
+      // start animation loops
       startAnimationLoops();
     } catch(err){
       console.error(err);
@@ -1414,12 +1593,13 @@ USER QUESTION: ${userMessage}
     }
   })();
 
-  // --------- Propagation & Animation ----------
+  // ---------- Propagation + Animation ----------
   let lastFPS = Date.now(), frames = 0;
   let lastPropagateTime = 0;
   let animationStartTime = Date.now();
-  let lastFrameTime = Date.now();
+  let lastFrameTime = Date.now(); // FIXED: Added missing variable
 
+  // Progressive loading: process satellites in batches
   async function loadSatellitesInBatches() {
     const totalBatches = Math.ceil(sats.length / BATCH_SIZE);
     
@@ -1428,29 +1608,24 @@ USER QUESTION: ${userMessage}
       const end = Math.min(start + BATCH_SIZE, sats.length);
       const batch = sats.slice(start, end);
       
+      // Update loading message
       const progress = Math.round((end / sats.length) * 100);
       document.getElementById('loadingMsg').textContent = 
         `Loading satellites: ${end}/${sats.length} (${progress}%)`;
       
+      // Propagate positions for this batch (current and next position for interpolation)
       const now = new Date();
       const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
       
       for (const s of batch) {
-        if (!s.isValid) continue;
+        if (!s.isValid) continue; // Skip invalid satellites
         
+        // Store satrec for faster updates
         if (!s.satrec) {
           try {
             s.satrec = satellite.twoline2satrec(s.tle1, s.tle2);
-            
-            const testProp = satellite.propagate(s.satrec, now);
-            if (!testProp || !testProp.position || isNaN(testProp.position.x)) {
-              console.warn(`Propagation test failed for ${s.name}, disabling`);
-              s.isValid = false;
-              s.placemark.enabled = false;
-              continue;
-            }
           } catch (e) {
-            console.warn(`Invalid TLE for ${s.name}, disabling:`, e);
+            console.warn(`Invalid TLE for ${s.name}, disabling`);
             s.isValid = false;
             s.placemark.enabled = false;
             continue;
@@ -1460,26 +1635,28 @@ USER QUESTION: ${userMessage}
         const pos = propPositionFromTLE(s.tle1, s.tle2, now);
         const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
         
-        if (pos && nextPos && isFinite(pos.lat) && isFinite(pos.lon) && isFinite(pos.alt)) {
+        if (pos) {
           s.position = pos;
           s.nextPosition = nextPos;
           s.lastPropagated = now;
           s.placemark.position = new WorldWind.Position(pos.lat, pos.lon, pos.alt);
           visibleSats.add(s.id);
-        } else {
-          s.isValid = false;
-          s.placemark.enabled = false;
         }
       }
       
+      // Update visible count
       document.getElementById('visibleCount').textContent = visibleSats.size;
+      
+      // Redraw to show progress
       wwd.redraw();
       
+      // Small delay between batches to keep UI responsive
       if (batchIdx < totalBatches - 1) {
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
       }
     }
     
+    // Store initial propagation time
     lastPropagateTime = Date.now();
     animationStartTime = lastPropagateTime;
   }
@@ -1488,27 +1665,17 @@ USER QUESTION: ${userMessage}
     const now = new Date();
     const future = new Date(now.getTime() + PROPAGATION_UPDATE_MS);
     
-    let invalidCount = 0;
-    
     for(const s of sats){
-      if (!s.isValid) continue;
+      if (!s.isValid) continue; // Skip invalid satellites
       
       const pos = propPositionFromTLE(s.tle1, s.tle2, now);
       const nextPos = propPositionFromTLE(s.tle1, s.tle2, future);
       
-      if(pos && nextPos && isFinite(pos.lat) && isFinite(pos.lon) && isFinite(pos.alt)){
+      if(pos){
         s.position = pos;
         s.nextPosition = nextPos;
         s.lastPropagated = now;
-      } else {
-        s.isValid = false;
-        s.placemark.enabled = false;
-        invalidCount++;
       }
-    }
-    
-    if (invalidCount > 0) {
-      console.log(`Disabled ${invalidCount} satellites due to propagation errors`);
     }
     
     lastPropagateTime = Date.now();
@@ -1516,18 +1683,21 @@ USER QUESTION: ${userMessage}
   }
 
   function startAnimationLoops(){
+    // propagation update timer - calculate new accurate positions every 5 seconds
     setInterval(async ()=>{
       try {
         await propagateAllOnce();
       } catch(e){ console.warn('Propagation update error', e); }
     }, PROPAGATION_UPDATE_MS);
 
+    // render animation loop with smooth interpolation at 60fps
     function frame(){
       requestAnimationFrame(frame);
       
       const now = Date.now();
-      lastFrameTime = now;
+      lastFrameTime = now; // FIXED: Update lastFrameTime
       
+      // FPS counter
       frames++;
       if(now - lastFPS > 1000){
         document.getElementById('fps').textContent = Math.round(frames * 1000 / (now - lastFPS));
@@ -1535,10 +1705,12 @@ USER QUESTION: ${userMessage}
         lastFPS = now;
       }
 
+      // Calculate interpolation factor (0 to 1) between propagation updates
       const timeSinceLastProp = now - lastPropagateTime;
       const speedMultiplier = parseFloat(document.getElementById('speed').value) || 1.0;
       const interpolationFactor = Math.min(timeSinceLastProp / PROPAGATION_UPDATE_MS, 1);
 
+      // Update all satellite positions with smooth interpolation
       for (const s of sats) {
         if (s.isValid && s.position && s.nextPosition && s.placemark.enabled) {
           const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
@@ -1546,19 +1718,26 @@ USER QUESTION: ${userMessage}
         }
       }
 
+      // update placemark sizes/visibility based on filters
       filterSatellites();
 
+      // follow camera if active - FIXED: Now allows zooming while following
       if(isFollowing && followSatelliteId !== null){
         const s = sats.find(x=>String(x.id)===String(followSatelliteId));
         if(s && s.isValid && s.position && s.nextPosition){
           const smoothPos = interpolatePosition(s.position, s.nextPosition, interpolationFactor);
           
+          // FIXED: Only update lookAt location, not range - this allows zooming
           wwd.navigator.lookAtLocation.latitude = smoothPos.lat;
           wwd.navigator.lookAtLocation.longitude = smoothPos.lon;
           
+          // FIXED: Remove the automatic range adjustment to allow manual zooming
+          // The user can now zoom in/out freely while following
+          
+          // FIXED: Ensure the followed satellite is always visible
           if (s.placemark) {
             s.placemark.enabled = true;
-            s.placemark.attributes.imageScale = 0.05;
+            s.placemark.attributes.imageScale = 0.05; // Slightly larger when following
           }
         }
       }
@@ -1568,12 +1747,13 @@ USER QUESTION: ${userMessage}
     frame();
   }
 
-  // --------- UI: Search & Filter ----------
+  // ---------- UI: search / filter / click handling ----------
   document.getElementById('searchInput').addEventListener('input', function(e){
     const q = e.target.value.trim();
     searchSatellites(q);
   });
 
+  // Orbit filter dropdown handler
   document.getElementById('orbitFilter').addEventListener('change', function(e){
     activeFilters.orbit = e.target.value;
     filterSatellites();
@@ -1593,6 +1773,7 @@ USER QUESTION: ${userMessage}
     });
   }
 
+  // filter option handlers
   document.querySelectorAll('.filter-option[data-type]').forEach(opt=>{
     opt.addEventListener('click', e=>{
       document.querySelectorAll('.filter-option[data-type]').forEach(o=>o.classList.remove('active'));
@@ -1624,22 +1805,24 @@ USER QUESTION: ${userMessage}
     wwd.redraw();
   }
 
+  // clicking on globe to pick placemark
   wwd.addEventListener('click', (evt) => {
     const pickList = wwd.pick(wwd.canvasCoordinates(evt.clientX, evt.clientY));
     if(trailRenderable){ trailLayer.removeRenderable(trailRenderable); trailRenderable = null; }
     if(pickList.objects.length > 0){
       const picked = pickList.objects[0].userObject;
+      // picked may be the sat userObject we stored
       const sat = sats.find(s => s.placemark === picked || s.name === (picked && picked.name));
       if(sat){ selectSatellite(sat); }
     } else {
       closeInfo();
-      closeGeminiInfo();
     }
   });
 
   function selectSatellite(sat){
     closeInfo();
     selected = sat;
+    // draw full trail (generateTrailPoints)
     const points = generateOrbitTrailPoints(sat.tle1, sat.tle2, TRAIL_DURATION_MINUTES, TRAIL_POINTS);
     if(points.length > 0){
       const path = new WorldWind.Path(points);
@@ -1651,20 +1834,21 @@ USER QUESTION: ${userMessage}
       trailRenderable = path;
       trailLayer.addRenderable(path);
     }
+    // ensure info & follow button
     if(sat.position){ showSatelliteInfo({ ...sat }); }
+    // center camera a bit above current pos
     if(sat.position){
       wwd.navigator.lookAtLocation.latitude = sat.position.lat;
       wwd.navigator.lookAtLocation.longitude = sat.position.lon;
       wwd.navigator.range = Math.max(500000, sat.position.alt + 500000);
       wwd.redraw();
     }
-    
-    document.getElementById('geminiInfo').style.display = 'block';
-    initializeChat(sat);
   }
 
+  // speed range UI
   document.getElementById('speed').oninput = e => { document.getElementById('speedVal').textContent = e.target.value; };
 
+  // End of script
   </script>
 </body>
 </html>
