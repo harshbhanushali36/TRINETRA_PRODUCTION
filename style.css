@@ -8,7 +8,13 @@
   padding: 0; 
   box-sizing: border-box; 
 }
-
+#conjunctionsPanel {
+  top: 20px;
+  right: 240px; /* Position to left of legend */
+  width: 350px;
+  max-height: 500px;
+  display: none;
+}
 /* Ensure all MUI components use Iceland font */
 body {
   font-family: 'Iceland', sans-serif;
