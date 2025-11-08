@@ -1266,5 +1266,265 @@
 
   // End of script
   </script>
+
+  <!-- Chatbot UI -->
+  <div id="chatbot-container">
+    <div id="chatbot-header" onclick="toggleChat()">
+      <span>TRINETRA Assistant</span>
+      <span id="chatbot-toggle">−</span>
+    </div>
+    <div id="chatbot-messages">
+      <div class="chat-message bot">
+        <div class="message-content">
+          Hello! I'm your TRINETRA assistant. How can I help you with the satellite visualization today?
+        </div>
+      </div>
+    </div>
+    <div id="chatbot-input">
+      <input type="text" id="chatbot-message" placeholder="Type your message..." onkeypress="handleChatKeyPress(event)">
+      <button onclick="sendChatMessage()">Send</button>
+    </div>
+  </div>
+  <button id="chatbot-button" onclick="toggleChat()">💬</button>
+
+  <style>
+    /* Chatbot Styles */
+    #chatbot-container {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      width: 320px;
+      height: 500px;
+      background: rgba(26, 26, 74, 0.9);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      transform: translateY(calc(100% + 20px));
+      transition: transform 0.3s ease;
+    }
+
+    #chatbot-container.open {
+      transform: translateY(0);
+    }
+
+    #chatbot-header {
+      padding: 15px 20px;
+      background: rgba(120, 219, 255, 0.1);
+      border-bottom: 1px solid rgba(120, 219, 255, 0.2);
+      border-radius: 16px 16px 0 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #78dbff;
+      font-size: 16px;
+    }
+
+    #chatbot-toggle {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    #chatbot-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .chat-message {
+      max-width: 80%;
+      padding: 10px 15px;
+      border-radius: 16px;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .chat-message.user {
+      background: rgba(120, 219, 255, 0.2);
+      margin-left: auto;
+      border-top-right-radius: 4px;
+    }
+
+    .chat-message.bot {
+      background: rgba(26, 26, 74, 0.6);
+      margin-right: auto;
+      border-top-left-radius: 4px;
+    }
+
+    #chatbot-input {
+      display: flex;
+      padding: 15px;
+      border-top: 1px solid rgba(120, 219, 255, 0.2);
+      background: rgba(10, 10, 42, 0.8);
+      border-radius: 0 0 16px 16px;
+    }
+
+    #chatbot-message {
+      flex: 1;
+      background: transparent;
+      border: 1px solid rgba(120, 219, 255, 0.3);
+      border-radius: 20px;
+      padding: 8px 15px;
+      color: white;
+      outline: none;
+      font-family: 'Iceland', sans-serif;
+      font-size: 14px;
+    }
+
+    #chatbot-input button {
+      background: linear-gradient(135deg, #78dbff 0%, #5bc0de 100%);
+      border: none;
+      border-radius: 20px;
+      color: #0a0a2a;
+      padding: 8px 15px;
+      margin-left: 10px;
+      cursor: pointer;
+      font-family: 'Iceland', sans-serif;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    #chatbot-input button:hover {
+      background: linear-gradient(135deg, #5bc0de 0%, #78dbff 100%);
+      box-shadow: 0 0 10px rgba(120, 219, 255, 0.5);
+    }
+
+    #chatbot-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #78dbff 0%, #5bc0de 100%);
+      border: none;
+      color: #0a0a2a;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    #chatbot-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(120, 219, 255, 0.7);
+    }
+
+    /* Custom scrollbar for chat */
+    #chatbot-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    #chatbot-messages::-webkit-scrollbar-track {
+      background: rgba(10, 10, 42, 0.2);
+      border-radius: 2px;
+    }
+    
+    #chatbot-messages::-webkit-scrollbar-thumb {
+      background: rgba(120, 219, 255, 0.5);
+      border-radius: 2px;
+    }
+  </style>
+
+  <script>
+    // Chatbot functionality
+    function toggleChat() {
+      const chatContainer = document.getElementById('chatbot-container');
+      const chatButton = document.getElementById('chatbot-button');
+      const toggleIcon = document.getElementById('chatbot-toggle');
+      
+      chatContainer.classList.toggle('open');
+      
+      if (chatContainer.classList.contains('open')) {
+        toggleIcon.textContent = '−';
+        chatButton.style.opacity = '0';
+        chatButton.style.pointerEvents = 'none';
+        document.getElementById('chatbot-message').focus();
+      } else {
+        toggleIcon.textContent = '+';
+        chatButton.style.opacity = '1';
+        chatButton.style.pointerEvents = 'auto';
+      }
+    }
+
+    function handleChatKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendChatMessage();
+      }
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatbot-message');
+      const message = input.value.trim();
+      
+      if (message === '') return;
+      
+      // Add user message to chat
+      addMessage(message, 'user');
+      input.value = '';
+      
+      // Simulate bot response (replace with actual API call)
+      setTimeout(() => {
+        const responses = [
+          "I can help you explore the satellite data. Try asking about specific satellites or orbital parameters.",
+          "You can click on any satellite to see detailed information about it.",
+          "Use the filters to view different types of satellites in orbit.",
+          "The visualization shows real-time satellite positions based on TLE data.",
+          "For more detailed information, you can check the satellite's info panel by clicking on it."
+        ];
+        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+        addMessage(randomResponse, 'bot');
+      }, 500);
+    }
+
+    function addMessage(text, sender) {
+      const messagesContainer = document.getElementById('chatbot-messages');
+      const messageElement = document.createElement('div');
+      messageElement.className = `chat-message ${sender}`;
+      
+      const contentElement = document.createElement('div');
+      contentElement.className = 'message-content';
+      contentElement.textContent = text;
+      
+      messageElement.appendChild(contentElement);
+      messagesContainer.appendChild(messageElement);
+      
+      // Auto-scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Initialize chat button with plus icon
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('chatbot-toggle').textContent = '+';
+    });
+  </script>
+
+  <!-- Chatbot UI -->
+  <div id="chatbot-container">
+    <div id="chatbot-header" onclick="toggleChat()">
+      <span>TRINETRA Assistant</span>
+      <span id="chatbot-toggle">+</span>
+    </div>
+    <div id="chatbot-messages">
+      <div class="chat-message bot">
+        <div class="message-content">
+          Hello! I'm your TRINETRA assistant. How can I help you with the satellite visualization today?
+        </div>
+      </div>
+    </div>
+    <div id="chatbot-input">
+      <input type="text" id="chatbot-message" placeholder="Type your message..." onkeypress="handleChatKeyPress(event)">
+      <button onclick="sendChatMessage()">Send</button>
+    </div>
+  </div>
+  <button id="chatbot-button" onclick="toggleChat()">💬</button>
 </body>
 </html>
