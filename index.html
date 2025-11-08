@@ -1848,6 +1848,9 @@ function parseCSVLine(line) {
   // speed range UI
   document.getElementById('speed').oninput = e => { document.getElementById('speedVal').textContent = e.target.value; };
 
+  // Load conjunction data when the page loads
+  loadConjunctionData();
+  
   // End of script
   </script>
 </body>
