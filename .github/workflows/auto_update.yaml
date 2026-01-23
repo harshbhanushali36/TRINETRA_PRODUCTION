@@ -1,57 +1,57 @@
-name: Auto Update SpaceTrack Data
+# name: Auto Update SpaceTrack Data
 
-permissions:
-  contents: write  # ✅ allows commits to repo
+# permissions:
+#   contents: write  # ✅ allows commits to repo
 
-on:
-  schedule:
-    - cron: "0 */12 * * *"  # ⏰ Runs every 12 hours
-  workflow_dispatch:         # Allows manual trigger
+# on:
+#   schedule:
+#     - cron: "0 */12 * * *"  # ⏰ Runs every 12 hours
+#   workflow_dispatch:         # Allows manual trigger
 
-jobs:
-  update-data:
-    runs-on: ubuntu-latest
+# jobs:
+#   update-data:
+#     runs-on: ubuntu-latest
 
-    steps:
-      # Step 1: Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          lfs: true
+#     steps:
+#       # Step 1: Checkout repository
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+#         with:
+#           token: ${{ secrets.GITHUB_TOKEN }}
+#           lfs: true
 
-      # Step 2: Set up Python
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+#       # Step 2: Set up Python
+#       - name: Set up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: "3.10"
 
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests pandas numpy
+#       # Step 3: Install dependencies
+#       - name: Install dependencies
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install requests pandas numpy
 
-      # Step 4: Run SpaceTrack Data Fetcher (gzip version)
-      - name: Run SpaceTrack Data Fetcher
-        env:
-          SPACETRACK_USERNAME: ${{ secrets.SPACETRACK_USERNAME }}
-          SPACETRACK_PASSWORD: ${{ secrets.SPACETRACK_PASSWORD }}
-        run: python spacetrack_fetch.py
+#       # Step 4: Run SpaceTrack Data Fetcher (gzip version)
+#       - name: Run SpaceTrack Data Fetcher
+#         env:
+#           SPACETRACK_USERNAME: ${{ secrets.SPACETRACK_USERNAME }}
+#           SPACETRACK_PASSWORD: ${{ secrets.SPACETRACK_PASSWORD }}
+#         run: python spacetrack_fetch.py
 
-      # Step 5: Commit and push updated gzip data
-      - name: Commit and push updates
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+#       # Step 5: Commit and push updated gzip data
+#       - name: Commit and push updates
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#         run: |
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add data/latest/*.json.gz data/raw/*.json.gz || true
+#           git add data/latest/*.json.gz data/raw/*.json.gz || true
 
-          if git diff --cached --quiet; then
-            echo "✅ No new data to commit — files unchanged."
-          else
-            git commit -m "🔄 Auto-update orbital data (12h refresh)"
-            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main
-          fi
+#           if git diff --cached --quiet; then
+#             echo "✅ No new data to commit — files unchanged."
+#           else
+#             git commit -m "🔄 Auto-update orbital data (12h refresh)"
+#             git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main
+#           fi
